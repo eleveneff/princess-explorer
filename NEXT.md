@@ -9,7 +9,7 @@ Game version: **v4.5**.
 - Royal quest map: ten short chapters through the gate, castle rooms, the garden island, and a practice question. Progress is saved. The little checks do not pay coins.
 - Castle care: confirm-before-charge, a fresh coin and prerequisite check, no second charge, hidden until bought, saved. Twelve additions are on that list.
 - Castle grounds radius 15 → 19.5 (×1.30). Interior rooms stay the same size. Paths now start at the new edge. A saved position on the old lawn (farther than the moat, inside the old 15) is scaled once by 1.30. Coins, stars, items, and other fields stay.
-- Each addition has its own ring. Standing on that ring, the gameplay camera frames the build.
+- Each addition has its own ring and its own silhouette, spaced around the lawn. Standing on a ring, the gameplay camera turns to face that build. The prompt says "Press E to visit the …". Name plaques are large cream boards with dark text.
 - Hall signs are small plaques above the doorways. The welcome toast sits on the left, clear of those plaques and of the Sir Biscuit prompt.
 - Castle Gate and Castle Challenge are small solid signs on posts. A roof that crosses the princess fades.
 - Prompt and Exit are 56px and do not overlap at 1280×720, 390×844, or 844×390.
@@ -44,7 +44,7 @@ No page errors. Only this agent was running, so the SwiftShader passes were seri
 Hall entry, same camera `(400, 4.2, 9)`, median of three on this machine (not a phone):
 
 - v4.4 baseline: **5** (3.75, 5, 5)
-- v4.5 after the framed model pass: **3.4** (2.4, 3.4, 3.7)
+- v4.5 after the silhouette pass: **5** (4, 5, 6)
 
 Same camera as v4.4. SwiftShader on this machine jumps between samples. This is not a phone measurement.
 
