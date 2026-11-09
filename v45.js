@@ -1,4 +1,4 @@
-/* Princess Explorer v4.5 — quests, castle care, review, grown-up page.
+/* Princess Explorer v4.6 — a mountain stream joins the moat. v4.5 quests and castle care stay.
    Loaded after the game. Does not change coin prices. */
 (function () {
   const PE = window.PrincessExplorer;
@@ -250,6 +250,1039 @@
   const SPH = new THREE.SphereGeometry(1, 10, 8);
   const CONE = new THREE.ConeGeometry(1, 1, 10);
 
+  const UP = [[-28.3, -36.2], [-24, -32], [-21, -26], [-19.5, -20], [-17.8, -16.6], [-15.6, -13.6], [-8.68, -9.68], [-7.45, -8.42]];
+  const DOWN = [[8.75, 5.13], [10.06, 6.05], [15.4, 4.5], [20.6, 9.2], [22.2, 18.6], [16.2, 28.4], [11.2, 35.2]];
+  const BRIDGES = [
+    { x: -19.5, z: -20, name: "North Lawn Bridge" },
+    { x: 15.4, z: 4.5, name: "Lantern Bridge", lantern: true, stone: true },
+    { x: 20.6, z: 9.2, name: "Garden Path Bridge" },
+    { x: 19, z: 24.3, name: "Meadow Bend Bridge" }
+  ];
+  const SPLASH = { x: 17.2, z: 6.4, r: 2.25 };
+  const stream = { samples: [], bridges: BRIDGES, inlet: { x: -8.68, z: -9.68 }, outlet: { x: 10.06, z: 6.05 }, source: { x: UP[0][0], z: UP[0][1] }, splash: "idle" };
+  let camHold = null;
+  function curveOf(pts) {
+    return new THREE.CatmullRomCurve3(pts.map(([x, z]) => new THREE.Vector3(x, 0, z)), false, "catmullrom", 0.35);
+  }
+  function sampleCurve(curve, n) {
+    const out = [];
+    let prev = null;
+    for (let i = 0; i < n; i++) {
+      const t = i / (n - 1);
+      const p = curve.getPoint(t);
+      const tan = curve.getTangent(t);
+      let nx = -tan.z, nz = tan.x;
+      if (prev && nx * prev.nx + nz * prev.nz < 0) { nx = -nx; nz = -nz; }
+      const s = { x: p.x, z: p.z, nx, nz, t };
+      out.push(s);
+      prev = s;
+    }
+    return out;
+  }
+  function retangent(samples) {
+    for (let i = 0; i < samples.length; i++) {
+      const a = samples[Math.max(0, i - 1)];
+      const b = samples[Math.min(samples.length - 1, i + 1)];
+      let tx = b.x - a.x, tz = b.z - a.z;
+      const len = Math.hypot(tx, tz) || 1;
+      tx /= len; tz /= len;
+      let nx = -tz, nz = tx;
+      if (i && nx * samples[i - 1].nx + nz * samples[i - 1].nz < 0) { nx = -nx; nz = -nz; }
+      samples[i].nx = nx;
+      samples[i].nz = nz;
+    }
+  }
+  function groundAt(x, z) { return PE.groundH ? PE.groundH(x, z) : 0; }
+  function ribbonMesh(samples, half, lift, mat) {
+    const n = samples.length;
+    const pos = new Float32Array(n * 6);
+    const uv = new Float32Array(n * 4);
+    const idx = [];
+    const tinted = samples.some((s) => s.fade != null && s.fade < 0.999);
+    const cols = tinted ? new Float32Array(n * 6) : null;
+    const base = tinted ? new THREE.Color(mat.color || "#7fd3f0") : null;
+    const fogC = new THREE.Color("#d4ebf7");
+    samples.forEach((s, i) => {
+      const h = s.half != null ? s.half * (half / 1.6) : half;
+      const a = i * 2, b = a + 1;
+      const yC = groundAt(s.x, s.z);
+      const yL = (s.level ? yC : groundAt(s.x + s.nx * h, s.z + s.nz * h)) + lift;
+      const yR = (s.level ? yC : groundAt(s.x - s.nx * h, s.z - s.nz * h)) + lift;
+      pos[a * 3] = s.x + s.nx * h; pos[a * 3 + 1] = yL; pos[a * 3 + 2] = s.z + s.nz * h;
+      pos[b * 3] = s.x - s.nx * h; pos[b * 3 + 1] = yR; pos[b * 3 + 2] = s.z - s.nz * h;
+      if (cols) {
+        const c = base.clone().lerp(fogC, 1 - (s.fade == null ? 1 : s.fade));
+        cols[a * 3] = cols[b * 3] = c.r;
+        cols[a * 3 + 1] = cols[b * 3 + 1] = c.g;
+        cols[a * 3 + 2] = cols[b * 3 + 2] = c.b;
+      }
+      uv[a * 2] = 0; uv[a * 2 + 1] = s.t * 10;
+      uv[b * 2] = 1; uv[b * 2 + 1] = s.t * 10;
+      if (i) {
+        const k = (i - 1) * 2;
+        idx.push(k, k + 1, a, k + 1, b, a);
+      }
+    });
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+    if (cols) geo.setAttribute("color", new THREE.BufferAttribute(cols, 3));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    const material = cols ? mat.clone() : mat;
+    if (cols) material.vertexColors = true;
+    if (samples.some((s) => s.fade != null && s.fade < 0.999)) fadeAlpha(geo, material, samples);
+    const m = new THREE.Mesh(geo, material);
+    m.frustumCulled = false;
+    return m;
+  }
+  function sideLip(samples, sign, inner, outer, lift, mat) {
+    const n = samples.length;
+    const pos = new Float32Array(n * 6);
+    const idx = [];
+    const tinted = samples.some((s) => s.fade != null && s.fade < 0.999);
+    const cols = tinted ? new Float32Array(n * 6) : null;
+    const base = tinted ? new THREE.Color(mat.color || "#b08968") : null;
+    const fogC = new THREE.Color("#d4ebf7");
+    samples.forEach((s, i) => {
+      const scale = s.half != null ? s.half / 1.6 : 1;
+      const a = i * 2, b = a + 1;
+      const innerS = inner * scale, outerS = outer * scale;
+      const yC = groundAt(s.x, s.z);
+      const yEdge = s.level ? yC : groundAt(s.x, s.z);
+      const crest = Math.min(Math.max(lift, 0.04), 0.12);
+      const yA = yEdge + crest * 0.4;
+      const yB = yEdge + crest;
+      pos[a * 3] = s.x + s.nx * sign * innerS; pos[a * 3 + 1] = yA; pos[a * 3 + 2] = s.z + s.nz * sign * innerS;
+      pos[b * 3] = s.x + s.nx * sign * outerS; pos[b * 3 + 1] = yB; pos[b * 3 + 2] = s.z + s.nz * sign * outerS;
+      if (cols) {
+        const c = base.clone().lerp(fogC, 1 - (s.fade == null ? 1 : s.fade));
+        cols[a * 3] = cols[b * 3] = c.r;
+        cols[a * 3 + 1] = cols[b * 3 + 1] = c.g;
+        cols[a * 3 + 2] = cols[b * 3 + 2] = c.b;
+      }
+      if (i) {
+        const k = (i - 1) * 2;
+        idx.push(k, k + 1, a, k + 1, b, a);
+      }
+    });
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    if (cols) geo.setAttribute("color", new THREE.BufferAttribute(cols, 3));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    const material = cols ? mat.clone() : mat;
+    if (cols) material.vertexColors = true;
+    if (samples.some((s) => s.fade != null && s.fade < 0.999)) fadeAlpha(geo, material, samples);
+    const m = new THREE.Mesh(geo, material);
+    m.frustumCulled = false;
+    return m;
+  }
+  function distantSkirt() {
+    if (PE.scene.getObjectByName("v46-skirt")) return;
+    const inner = 92, outer = 460, seg = 96, rings = 22;
+    const pos = [], col = [], idx = [];
+    const grass = new THREE.Color("#9ed48a");
+    const far = new THREE.Color("#d4ebf7");
+    const stride = seg + 1;
+    for (let j = 0; j <= rings; j++) {
+      const u = j / rings;
+      const r = inner + (outer - inner) * Math.pow(u, 0.92);
+      for (let i = 0; i <= seg; i++) {
+        const a = (i / seg) * Math.PI * 2;
+        const x = Math.cos(a) * r, z = Math.sin(a) * r;
+        const hill = Math.sin(a * 4.0 + r * 0.012) * 2.2 + Math.cos(a * 2.2 - r * 0.008) * 1.4;
+        const y = groundAt(x, z) * (1 - u) + (4.5 + hill) * u;
+        pos.push(x, y, z);
+        const c = grass.clone().lerp(far, Math.pow(u, 0.75));
+        col.push(c.r, c.g, c.b);
+      }
+    }
+    for (let j = 0; j < rings; j++) {
+      for (let i = 0; i < seg; i++) {
+        const a = j * stride + i;
+        idx.push(a, a + 1, a + stride, a + 1, a + stride + 1, a + stride);
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+    const meshSkirt = new THREE.Mesh(geo, mat);
+    meshSkirt.name = "v46-skirt";
+    meshSkirt.receiveShadow = true;
+    meshSkirt.frustumCulled = false;
+    PE.scene.add(meshSkirt);
+  }
+  function fadeAlpha(geo, material, samples) {
+    const fades = new Float32Array(samples.length * 2);
+    samples.forEach((s, i) => { fades[i * 2] = fades[i * 2 + 1] = s.fade == null ? 1 : s.fade; });
+    geo.setAttribute("fade", new THREE.BufferAttribute(fades, 1));
+    material.transparent = true;
+    material.depthWrite = false;
+    material.onBeforeCompile = (shader) => {
+      shader.vertexShader = shader.vertexShader
+        .replace("#include <common>", "#include <common>\nattribute float fade;\nvarying float vFade;")
+        .replace("#include <begin_vertex>", "#include <begin_vertex>\nvFade = fade;");
+      shader.fragmentShader = shader.fragmentShader
+        .replace("#include <common>", "#include <common>\nvarying float vFade;")
+        .replace("#include <opaque_fragment>", "#include <opaque_fragment>\ngl_FragColor.a *= vFade;");
+    };
+  }
+  function stampFade(samples, wideAtStart) {
+    const n = samples.length;
+    for (let i = 0; i < n; i++) {
+      const t = i / (n - 1);
+      const away = wideAtStart ? t : 1 - t;
+      const s = samples[i];
+      s.half = 1.5 * Math.pow(1 - away, 1.45) + 0.02;
+      s.fade = Math.pow(1 - away, 1.7);
+      if (away > 0.9) s.fade = 0;
+      if (away < 0.05) { s.half = 1.6; s.fade = 1; }
+      s.scenery = true;
+      s.level = true;
+    }
+  }
+  function sparkleTexture() {
+    const c = document.createElement("canvas");
+    c.width = c.height = 256;
+    const g = c.getContext("2d");
+    g.clearRect(0, 0, 256, 256);
+    g.strokeStyle = "rgba(255,255,255,0.65)";
+    g.lineCap = "round";
+    for (let i = 0; i < 28; i++) {
+      g.lineWidth = 2 + (i % 3);
+      g.beginPath();
+      g.arc(20 + (i * 37) % 220, (i * 29) % 240, 8 + (i % 5) * 3, Math.PI * 1.1, Math.PI * 1.9);
+      g.stroke();
+    }
+    for (let i = 0; i < 50; i++) {
+      g.fillStyle = i % 2 ? "rgba(255,255,255,0.95)" : "rgba(255,210,240,0.9)";
+      g.beginPath();
+      g.arc((i * 53) % 250, (i * 41) % 250, 1.4 + (i % 3), 0, 7);
+      g.fill();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+  function fallTexture() {
+    const c = document.createElement("canvas");
+    c.width = 64; c.height = 256;
+    const g = c.getContext("2d");
+    g.fillStyle = "#9ae6ff";
+    g.fillRect(0, 0, 64, 256);
+    g.strokeStyle = "rgba(255,255,255,0.85)";
+    g.lineWidth = 3;
+    for (let i = 0; i < 8; i++) {
+      g.beginPath();
+      g.moveTo(6 + i * 8, 0);
+      g.lineTo(4 + i * 8, 256);
+      g.stroke();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+  function inDeep(x, z) {
+    const moat = Math.hypot(x, z + 1);
+    if (moat < 12.5 && moat > 7.2) return null;
+    for (let i = 0; i < stream.samples.length; i++) {
+      const s = stream.samples[i];
+      if (Math.hypot(x - s.x, z - s.z) < 1.25) {
+        const onBridge = BRIDGES.some((b) => Math.hypot(x - b.x, z - b.z) < 2.1);
+        const shallow = Math.hypot(x - SPLASH.x, z - SPLASH.z) < SPLASH.r;
+        if (!onBridge && !shallow) return s;
+      }
+    }
+    return null;
+  }
+  function archY(z) {
+    const u = (z + 2.35) / 4.7;
+    return 0.16 + Math.sin(Math.max(0, Math.min(1, u)) * Math.PI) * 0.95;
+  }
+  function footbridge(b, yaw) {
+    const g = new THREE.Group();
+    g.position.set(b.x, 0, b.z);
+    g.rotation.y = yaw;
+    g.name = "stream-bridge";
+    const mat = b.stone ? MAT.bridgeStone : MAT.bridgeWood;
+    const n = 11;
+    const span = 4.7;
+    for (let i = 0; i < n; i++) {
+      const z = -span / 2 + (i + 0.5) * (span / n);
+      const y = archY(z);
+      g.add(mesh(BOX, mat, 0, y, z, 1.25, 0.1, span / n * 0.9));
+      if (i % 2 === 0) {
+        g.add(mesh(CYL, mat, -0.58, y + 0.36, z, 0.045, 0.62, 0.045));
+        g.add(mesh(CYL, mat, 0.58, y + 0.36, z, 0.045, 0.62, 0.045));
+      }
+    }
+    for (let i = 0; i < n - 1; i++) {
+      const z0 = -span / 2 + (i + 0.5) * (span / n);
+      const z1 = z0 + span / n;
+      const y = (archY(z0) + archY(z1)) / 2 + 0.58;
+      const z = (z0 + z1) / 2;
+      g.add(mesh(BOX, mat, -0.58, y, z, 0.05, 0.05, span / n * 1.08));
+      g.add(mesh(BOX, mat, 0.58, y, z, 0.05, 0.05, span / n * 1.08));
+    }
+    [[-0.85, -2.2], [0.85, -2.2], [-0.85, 2.2], [0.85, 2.2]].forEach(([x, z], i) => {
+      g.add(mesh(CYL, MAT.bridgeStone, x, archY(z) + 0.08, z, 0.16, 0.12, 0.16));
+      g.add(mesh(SPH, i % 2 ? MAT.petal : MAT.leaf, x, archY(z) + 0.24, z, 0.13));
+    });
+    if (b.lantern) {
+      const y = archY(2.05);
+      g.add(mesh(CYL, MAT.gold, 0.58, y + 0.85, 2.05, 0.035, 0.5, 0.035));
+      g.add(mesh(SPH, MAT.glow, 0.58, y + 1.15, 2.05, 0.12));
+    }
+    return g;
+  }
+  function bridgeLift(x, z) {
+    for (let i = 0; i < BRIDGES.length; i++) {
+      const b = BRIDGES[i];
+      if (b.yaw == null) continue;
+      const dx = x - b.x, dz = z - b.z;
+      const c = Math.cos(b.yaw), s = Math.sin(b.yaw);
+      const lx = dx * c - dz * s;
+      const lz = dx * s + dz * c;
+      if (Math.abs(lx) < 0.7 && Math.abs(lz) < 2.35) return archY(lz) - 0.12;
+    }
+    return 0;
+  }
+  function moatRadius(x, z) { return Math.hypot(x, z + 1); }
+  function buildStream() {
+    if (PE.scene.getObjectByName("v46-stream")) return;
+    mats();
+    if (PE.scene.fog) { PE.scene.fog.near = 78; PE.scene.fog.far = 205; }
+    distantSkirt();
+    const root = new THREE.Group();
+    root.name = "v46-stream";
+    MAT.brook = new THREE.MeshLambertMaterial({ color: "#7fd3f0", side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
+    MAT.brookShine = new THREE.MeshPhongMaterial({ color: "#a8ecff", emissive: "#4fb8e0", emissiveIntensity: 0.28, shininess: 110, specular: "#ffffff", transparent: true, opacity: 0.9, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -6, polygonOffsetUnits: -6 });
+    MAT.spark = new THREE.MeshBasicMaterial({ map: sparkleTexture(), transparent: true, opacity: 0.72, depthWrite: false, side: THREE.DoubleSide });
+    MAT.falls = new THREE.MeshPhongMaterial({ map: fallTexture(), color: "#e7f8ff", emissive: "#9ae8ff", emissiveIntensity: 0.8, shininess: 90, specular: "#ffffff", transparent: true, opacity: 1, side: THREE.DoubleSide });
+    MAT.sand = new THREE.MeshLambertMaterial({ color: "#b08968", side: THREE.DoubleSide });
+    MAT.wet = new THREE.MeshLambertMaterial({ color: "#8d6b4a", side: THREE.DoubleSide });
+    MAT.bridgeWood = new THREE.MeshLambertMaterial({ color: "#8d5a32" });
+    MAT.bridgeStone = new THREE.MeshLambertMaterial({ color: "#d7cbb8" });
+    MAT.foam = new THREE.MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.85, depthWrite: false, side: THREE.DoubleSide });
+    const up = sampleCurve(curveOf(UP), 80);
+    const down = sampleCurve(curveOf(DOWN), 72);
+    stream.samples = up.concat(down);
+    stream.spans = [up, down];
+    function layChannel(samples, name) {
+      const bed = ribbonMesh(samples, 1.72, 0.04, MAT.sand);
+      bed.renderOrder = 1;
+      root.add(bed);
+      [1, -1].forEach((sign) => {
+        const lip = sideLip(samples, sign, 1.58, 2.02, 0.1, MAT.wet);
+        lip.renderOrder = 1;
+        root.add(lip);
+      });
+      const water = ribbonMesh(samples, 1.6, 0.26, MAT.brook);
+      water.name = name;
+      water.renderOrder = 3;
+      root.add(water);
+      const shine = ribbonMesh(samples, 1.52, 0.3, MAT.brookShine);
+      shine.renderOrder = 4;
+      root.add(shine);
+      return water;
+    }
+    retangent(up);
+    retangent(down);
+    [up, down].forEach((samples) => {
+      layChannel(samples, "stream-water");
+      const spark = ribbonMesh(samples, 1.5, 0.32, MAT.spark);
+      spark.name = "stream-spark";
+      spark.renderOrder = 4;
+      root.add(spark);
+    });
+    const dummy = new THREE.Object3D();
+    const pebbles = [];
+    stream.samples.forEach((s, i) => {
+      if (i % 2) return;
+      pebbles.push([s.x + s.nx * 1.9, groundAt(s.x, s.z) + 0.16, s.z + s.nz * 1.9]);
+      pebbles.push([s.x - s.nx * 1.9, groundAt(s.x, s.z) + 0.16, s.z - s.nz * 1.9]);
+    });
+    const pebbleMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.16, 6, 5), MAT.bridgeStone, pebbles.length);
+    pebbles.forEach((p, i) => { dummy.position.set(p[0], p[1], p[2]); dummy.scale.setScalar(0.7 + (i % 3) * 0.35); dummy.updateMatrix(); pebbleMesh.setMatrixAt(i, dummy.matrix); });
+    root.add(pebbleMesh);
+    const reeds = stream.samples.filter((_, i) => i % 6 === 0);
+    const reedMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.035, 0.045, 0.8, 5), MAT.leaf, reeds.length);
+    reeds.forEach((s, i) => {
+      dummy.position.set(s.x + s.nx * 2.05, groundAt(s.x, s.z) + 0.5, s.z + s.nz * 2.05);
+      dummy.rotation.z = i % 2 ? 0.25 : -0.2;
+      dummy.scale.set(1, 1, 1);
+      dummy.updateMatrix();
+      reedMesh.setMatrixAt(i, dummy.matrix);
+    });
+    root.add(reedMesh);
+    const lilies = stream.samples.filter((_, i) => i % 9 === 4);
+    const lilyMesh = new THREE.InstancedMesh(new THREE.CircleGeometry(0.32, 8), MAT.hedge, lilies.length);
+    lilies.forEach((s, i) => {
+      dummy.position.set(s.x + s.nx * 0.45, groundAt(s.x, s.z) + 0.3, s.z + s.nz * 0.45);
+      dummy.rotation.set(-Math.PI / 2, 0, 0);
+      dummy.scale.set(1, 1, 1);
+      dummy.updateMatrix();
+      lilyMesh.setMatrixAt(i, dummy.matrix);
+    });
+    root.add(lilyMesh);
+    const src = UP[0];
+    const outAng = Math.atan2(src[1], src[0]);
+    const sideAng = outAng + Math.PI / 2;
+    const ray = (r, sway) => [Math.cos(outAng) * r + Math.cos(sideAng) * sway, Math.sin(outAng) * r + Math.sin(sideAng) * sway];
+    MAT.peak = new THREE.MeshLambertMaterial({ color: "#8ea4b8" });
+    MAT.snow = new THREE.MeshLambertMaterial({ color: "#f7fbff" });
+    MAT.fallSheet = new THREE.MeshPhongMaterial({ map: fallTexture(), color: "#e7f7ff", emissive: "#9adfff", emissiveIntensity: 0.45, transparent: true, opacity: 0.72, depthWrite: false, side: THREE.DoubleSide, shininess: 80 });
+    MAT.mist = new THREE.MeshBasicMaterial({ color: "#f4fbff", transparent: true, opacity: 0.28, depthWrite: false });
+    const swayAt = (r) => Math.sin((r - 46) * 0.1) * 4.5;
+    const falls = new THREE.Group();
+    falls.name = "stream-falls";
+    const mist = new THREE.Group();
+    mist.name = "stream-mist";
+    const fallR = 57;
+    const sw = swayAt(fallR);
+    const poolP = ray(fallR - 1.6, sw);
+    const poolG = groundAt(poolP[0], poolP[1]);
+    stream.fallsAt = { x: poolP[0], z: poolP[1] };
+    let lipY = poolG;
+    [[0.6, 5, 3.4, 1.45, 0], [2.1, 3, 2.1, 1.3, 1.05], [3.3, 2, 1.15, 1.15, 2.05]].forEach(([dr, n, span, scale, seat]) => {
+      for (let k = 0; k < n; k++) {
+        const extra = n === 1 ? 0 : (k - (n - 1) / 2) * (span / (n - 1));
+        const p = ray(fallR + dr, sw + extra);
+        const g = groundAt(p[0], p[1]);
+        root.add(mesh(SPH, MAT.bridgeStone, p[0], g + seat + scale * 0.4, p[1], scale));
+        lipY = Math.max(lipY, g + seat + scale * 1.35);
+      }
+    });
+    const face = ray(fallR + 0.15, sw);
+    const sheetH = Math.max(2.4, lipY - poolG - 0.2);
+    [2.5, 1.55].forEach((w, i) => {
+      const sheet = new THREE.Mesh(new THREE.PlaneGeometry(w, sheetH), MAT.fallSheet);
+      const nudge = i ? 0.35 : 0;
+      sheet.position.set(face[0] - Math.cos(outAng) * nudge, poolG + 0.25 + sheetH / 2, face[1] - Math.sin(outAng) * nudge);
+      sheet.rotation.y = Math.atan2(-Math.cos(outAng), -Math.sin(outAng));
+      sheet.name = "stream-fall";
+      falls.add(sheet);
+    });
+    const basinPool = new THREE.Mesh(new THREE.CircleGeometry(2.5, 22), MAT.brook);
+    basinPool.rotation.x = -Math.PI / 2;
+    basinPool.position.set(poolP[0], poolG + 0.3, poolP[1]);
+    basinPool.renderOrder = 3;
+    basinPool.name = "stream-pond";
+    root.add(basinPool);
+    const fallFoam = new THREE.Mesh(new THREE.CircleGeometry(2.15, 20), MAT.foam);
+    fallFoam.rotation.x = -Math.PI / 2;
+    fallFoam.position.set(poolP[0], poolG + 0.34, poolP[1]);
+    fallFoam.name = "stream-foam";
+    root.add(fallFoam);
+    for (let m = 0; m < 4; m++) {
+      const puff = mesh(SPH, MAT.mist.clone(), poolP[0] + Math.cos(sideAng) * (m - 1.5) * 0.7, poolG + 0.7, poolP[1] + Math.sin(sideAng) * (m - 1.5) * 0.7, 0.5);
+      puff.userData.base = { x: puff.position.x, y: puff.position.y, z: puff.position.z };
+      mist.add(puff);
+    }
+    root.add(falls);
+    root.add(mist);
+    stream.mist = mist;
+    const crest = ray(fallR + 10, sw);
+    const crestG = groundAt(crest[0], crest[1]);
+    const peak = mesh(CONE, MAT.peak, crest[0], crestG + 4, crest[1], 8, 18, 7);
+    peak.name = "stream-mountain";
+    root.add(peak);
+    root.add(mesh(CONE, MAT.snow, crest[0], crestG + 12, crest[1], 2.6, 4, 2.4));
+    const UP_FAR = [];
+    for (let r = 46; r <= fallR - 2; r += 3) UP_FAR.push(r === 46 ? [src[0], src[1]] : ray(r, swayAt(r)));
+    const pond = DOWN[DOWN.length - 1];
+    const beforePond = DOWN[DOWN.length - 2];
+    const ix = pond[0] - beforePond[0], iz = pond[1] - beforePond[1];
+    const il = Math.hypot(ix, iz) || 1;
+    const heading = Math.atan2(iz, ix);
+    const px = -Math.sin(heading), pz = Math.cos(heading);
+    const DOWN_FAR = [];
+    for (let d = 4; d <= 230; d += 8) {
+      const sway = Math.sin(d * 0.075) * 8;
+      DOWN_FAR.push([pond[0] + Math.cos(heading) * d + px * sway, pond[1] + Math.sin(heading) * d + pz * sway]);
+    }
+    const farUp = sampleCurve(curveOf(UP_FAR), 48);
+    const farDown = sampleCurve(curveOf(DOWN_FAR), 80);
+    retangent(farUp);
+    retangent(farDown);
+    stampFade(farDown, true);
+    farUp.forEach((s) => { s.scenery = true; s.level = true; s.half = 1.6; s.fade = 1; });
+    farDown.forEach((s) => { s.level = true; });
+    stream.spans.push(farUp, farDown);
+    farUp.concat(farDown).forEach((s) => stream.samples.push(s));
+    const farDownBank = farDown.filter((s) => Math.hypot(s.x - pond[0], s.z - pond[1]) > 4.3);
+    layChannel(farUp, "stream-horizon");
+    const bed = ribbonMesh(farDown, 1.72, 0.04, MAT.sand);
+    bed.renderOrder = 1;
+    root.add(bed);
+    [1, -1].forEach((sign) => {
+      const lip = sideLip(farDownBank, sign, 1.58, 2.02, 0.1, MAT.wet);
+      lip.renderOrder = 1;
+      root.add(lip);
+    });
+    const farWater = ribbonMesh(farDown, 1.6, 0.26, MAT.brook);
+    farWater.name = "stream-horizon";
+    farWater.renderOrder = 3;
+    root.add(farWater);
+    const farShine = ribbonMesh(farDown, 1.52, 0.3, MAT.brookShine);
+    farShine.renderOrder = 4;
+    root.add(farShine);
+    const pondY = groundAt(pond[0], pond[1]);
+    const pondPool = new THREE.Mesh(new THREE.CircleGeometry(4.8, 28), MAT.brook);
+    pondPool.rotation.x = -Math.PI / 2;
+    pondPool.position.set(pond[0], pondY + 0.32, pond[1]);
+    pondPool.renderOrder = 3;
+    pondPool.name = "stream-pond";
+    root.add(pondPool);
+    stream.horizon = {
+      upR: +Math.max(fallR + 8, farUp.reduce((m, s) => Math.max(m, Math.hypot(s.x, s.z)), 0)).toFixed(1),
+      downR: +Math.hypot(farDown[farDown.length - 1].x, farDown[farDown.length - 1].z).toFixed(1),
+      upFade: 0,
+      downFade: +farDown[farDown.length - 1].fade.toFixed(3)
+    };
+    let minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9;
+    stream.spans.forEach((span) => span.forEach((s) => {
+      if (s.x < minX) minX = s.x;
+      if (s.x > maxX) maxX = s.x;
+      if (s.z < minZ) minZ = s.z;
+      if (s.z > maxZ) maxZ = s.z;
+    }));
+    stream.box = { minX, maxX, minZ, maxZ };
+    const poolY = groundAt(src[0], src[1]);
+    const foam = new THREE.Mesh(new THREE.CircleGeometry(2.4, 20), MAT.brook);
+    foam.rotation.x = -Math.PI / 2;
+    foam.position.set(src[0], poolY + 0.22, src[1]);
+    root.add(foam);
+    const froth = new THREE.Mesh(new THREE.RingGeometry(1.5, 2.35, 24), MAT.foam);
+    froth.rotation.x = -Math.PI / 2;
+    froth.position.set(src[0], poolY + 0.3, src[1]);
+    froth.name = "stream-foam";
+    root.add(froth);
+    stream.foam = froth;
+    [[-1.6, 0.4], [1.5, -0.3], [0.2, 1.6], [-0.4, -1.5]].forEach(([ox, oz]) => {
+      root.add(mesh(SPH, MAT.bridgeStone, src[0] + ox, poolY + 0.45, src[1] + oz, 0.55));
+    });
+    function lip(x, z) {
+      const s = stream.samples.reduce((a, b) => Math.hypot(b.x - x, b.z - z) < Math.hypot(a.x - x, a.z - z) ? b : a);
+      [-1, 1].forEach((side) => {
+        root.add(mesh(SPH, MAT.bridgeStone, s.x + s.nx * side * 1.7, groundAt(s.x, s.z) + 0.35, s.z + s.nz * side * 1.7, 0.42));
+      });
+      const ripple = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.08, 8, 24), MAT.ripple);
+      ripple.rotation.x = -Math.PI / 2;
+      ripple.position.set(x, groundAt(x, z) + 0.32, z);
+      root.add(ripple);
+    }
+    lip(stream.inlet.x, stream.inlet.z);
+    lip(stream.outlet.x, stream.outlet.z);
+    BRIDGES.forEach((b) => {
+      let best = stream.samples[0], d = 1e9;
+      stream.samples.forEach((s) => { const dd = Math.hypot(s.x - b.x, s.z - b.z); if (dd < d) { d = dd; best = s; } });
+      b.x = best.x; b.z = best.z; b.yaw = Math.atan2(best.nx, best.nz);
+      const bridge = footbridge(b, b.yaw);
+      bridge.position.y = groundAt(b.x, b.z);
+      root.add(bridge);
+    });
+    let splashAt = stream.samples[0];
+    stream.samples.forEach((s) => { if (Math.hypot(s.x - 17.2, s.z - 6.4) < Math.hypot(splashAt.x - 17.2, splashAt.z - 6.4)) splashAt = s; });
+    SPLASH.x = splashAt.x; SPLASH.z = splashAt.z;
+    const py = groundAt(SPLASH.x, SPLASH.z);
+    const beach = new THREE.Mesh(new THREE.CircleGeometry(SPLASH.r + 0.7, 28), MAT.sand);
+    beach.rotation.x = -Math.PI / 2;
+    beach.position.set(SPLASH.x, py + 0.1, SPLASH.z);
+    root.add(beach);
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(SPLASH.r, 28), MAT.brook);
+    pool.rotation.x = -Math.PI / 2;
+    pool.position.set(SPLASH.x, py + 0.22, SPLASH.z);
+    pool.name = "stream-splash";
+    root.add(pool);
+    const poolShine = new THREE.Mesh(new THREE.CircleGeometry(SPLASH.r - 0.15, 28), MAT.brookShine);
+    poolShine.rotation.x = -Math.PI / 2;
+    poolShine.position.set(SPLASH.x, py + 0.26, SPLASH.z);
+    root.add(poolShine);
+    [[-1.3, -0.2], [0.2, 0.9], [1.1, -0.7], [-0.3, -1.2], [0.8, 0.5]].forEach(([x, z]) => {
+      root.add(mesh(CYL, MAT.bridgeStone, SPLASH.x + x, py + 0.28, SPLASH.z + z, 0.34, 0.08, 0.34));
+    });
+    for (let i = 0; i < 16; i++) {
+      const a = i / 16 * Math.PI * 2;
+      root.add(mesh(SPH, MAT.bridgeStone, SPLASH.x + Math.cos(a) * (SPLASH.r + 0.15), py + 0.22, SPLASH.z + Math.sin(a) * (SPLASH.r + 0.15), 0.18));
+    }
+    const drops = new THREE.Group();
+    drops.name = "stream-drops";
+    const dropMat = new THREE.MeshBasicMaterial({ color: "#f4fbff" });
+    for (let i = 0; i < 18; i++) drops.add(mesh(SPH, dropMat, 0, -4, 0, 0.22));
+    root.add(drops);
+    stream.drops = drops;
+    PE.scene.add(root);
+    stream.samples.forEach((s) => {
+      if (s.scenery && Math.hypot(s.x, s.z) > 51) return;
+      if (moatRadius(s.x, s.z) < 12.55) return;
+      if (BRIDGES.some((b) => Math.hypot(s.x - b.x, s.z - b.z) < 2.15)) return;
+      if (Math.hypot(s.x - SPLASH.x, s.z - SPLASH.z) < SPLASH.r + 0.3) return;
+      if (PE.obstacles) PE.obstacles.push({ x: s.x, z: s.z, r: 1.15 });
+    });
+    if (PE.gate && PE.gate.liftAt && !PE.gate.liftAt._stream) {
+      const prev = PE.gate.liftAt;
+      const wrapped = (x, z) => (prev(x, z) || 0) + bridgeLift(x, z);
+      wrapped._stream = true;
+      PE.gate.liftAt = wrapped;
+    }
+    clearChannel(root);
+  }
+  const CLEAR_R = 2.85;
+  function pathDist(x, z) {
+    let best = 1e9;
+    const spans = stream.spans || [];
+    for (let s = 0; s < spans.length; s++) {
+      const span = spans[s];
+      for (let i = 1; i < span.length; i++) {
+        const a = span[i - 1], b = span[i];
+        const dx = b.x - a.x, dz = b.z - a.z;
+        const l2 = dx * dx + dz * dz || 1e-6;
+        let t = ((x - a.x) * dx + (z - a.z) * dz) / l2;
+        t = t < 0 ? 0 : t > 1 ? 1 : t;
+        const d = Math.hypot(x - (a.x + dx * t), z - (a.z + dz * t));
+        if (d < best) best = d;
+      }
+    }
+    return best;
+  }
+  function inChannel(x, z) {
+    if (pathDist(x, z) < CLEAR_R) return true;
+    if (Math.hypot(x - SPLASH.x, z - SPLASH.z) < SPLASH.r + 1.05) return true;
+    if (Math.hypot(x - stream.source.x, z - stream.source.z) < 3.4) return true;
+    if (stream.fallsAt && Math.hypot(x - stream.fallsAt.x, z - stream.fallsAt.z) < 7) return true;
+    return false;
+  }
+  function nearestSample(x, z) {
+    let best = stream.samples[0], d = 1e9;
+    for (let i = 0; i < stream.samples.length; i++) {
+      const s = stream.samples[i];
+      const dd = (s.x - x) * (s.x - x) + (s.z - z) * (s.z - z);
+      if (dd < d) { d = dd; best = s; }
+    }
+    return best;
+  }
+  function skipScenery(o) {
+    let p = o;
+    while (p) {
+      const n = p.name || "";
+      if (n === "v46-stream" || n === "v46-skirt" || n === "v34-moat" || n === "v45-lawn" || n === "v34-biscuit") return true;
+      if (p === PE.princess || p.isSkinnedMesh) return true;
+      if (/castle|princess|sky|cloud|moat/i.test(n)) return true;
+      p = p.parent;
+    }
+    return false;
+  }
+  function clearChannel(root) {
+    const moved = [];
+    const posts = [];
+    stream.left = [];
+    const v = new THREE.Vector3();
+    const inv = new THREE.Matrix4();
+    const buried = new THREE.Vector3();
+    PE.scene.updateMatrixWorld(true);
+    PE.scene.traverse((o) => {
+      if (!o.isMesh || !o.geometry || !o.geometry.attributes || !o.geometry.attributes.position || skipScenery(o)) return;
+      if (o.material && o.material.isShaderMaterial) return;
+      o.updateMatrixWorld(true);
+      let geo = o.geometry;
+      if (!geo.userData._streamOwned) {
+        geo = geo.clone();
+        geo.userData._streamOwned = 1;
+        o.geometry = geo;
+      }
+      let pos = geo.attributes.position;
+      const index = geo.index ? geo.index.array : null;
+      const triCount = index ? (index.length / 3) | 0 : (pos.count / 3) | 0;
+      if (triCount < 1 || triCount > 80000) return;
+      const M = o.matrixWorld;
+      inv.copy(M).invert();
+      const wx = new Float32Array(pos.count);
+      const wy = new Float32Array(pos.count);
+      const wz = new Float32Array(pos.count);
+      let minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9;
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(M);
+        wx[i] = v.x; wy[i] = v.y; wz[i] = v.z;
+        if (v.x < minX) minX = v.x;
+        if (v.x > maxX) maxX = v.x;
+        if (v.z < minZ) minZ = v.z;
+        if (v.z > maxZ) maxZ = v.z;
+      }
+      if (maxX - minX > 220 || maxZ - minZ > 220) return;
+      const box = stream.box;
+      if (box && (maxX < box.minX - 6 || minX > box.maxX + 6 || maxZ < box.minZ - 6 || minZ > box.maxZ + 6)) return;
+      const cx = new Float32Array(triCount);
+      const cz = new Float32Array(triCount);
+      const cy = new Float32Array(triCount);
+      const triVerts = new Int32Array(triCount * 3);
+      const hit = new Uint8Array(triCount);
+      let any = false;
+      for (let t = 0; t < triCount; t++) {
+        const a = index ? index[t * 3] : t * 3;
+        const b = index ? index[t * 3 + 1] : t * 3 + 1;
+        const c = index ? index[t * 3 + 2] : t * 3 + 2;
+        triVerts[t * 3] = a; triVerts[t * 3 + 1] = b; triVerts[t * 3 + 2] = c;
+        const x = (wx[a] + wx[b] + wx[c]) / 3;
+        const y = (wy[a] + wy[b] + wy[c]) / 3;
+        const z = (wz[a] + wz[b] + wz[c]) / 3;
+        cx[t] = x; cy[t] = y; cz[t] = z;
+        const edge = Math.max(Math.hypot(wx[a] - wx[b], wz[a] - wz[b]), Math.hypot(wx[b] - wx[c], wz[b] - wz[c]), Math.hypot(wx[c] - wx[a], wz[c] - wz[a]));
+        if (edge > 8) continue;
+        if (y > -2 && inChannel(x, z)) { hit[t] = 1; any = true; }
+      }
+      if (!any) return;
+      const cell = 1.3;
+      const grid = new Map();
+      const key = (x, z) => ((Math.floor(x / cell) + 512) << 16) ^ (Math.floor(z / cell) + 512);
+      for (let t = 0; t < triCount; t++) {
+        if (cy[t] < -2) continue;
+        const k = key(cx[t], cz[t]);
+        const list = grid.get(k);
+        if (list) list.push(t);
+        else grid.set(k, [t]);
+      }
+      function nearTris(t) {
+        const out = [];
+        const gx = Math.floor(cx[t] / cell), gz = Math.floor(cz[t] / cell);
+        for (let ix = gx - 1; ix <= gx + 1; ix++) {
+          for (let iz = gz - 1; iz <= gz + 1; iz++) {
+            const list = grid.get(((ix + 512) << 16) ^ (iz + 512));
+            if (!list) continue;
+            for (let n = 0; n < list.length; n++) {
+              const j = list[n];
+              if (j === t) continue;
+              if ((cx[j] - cx[t]) * (cx[j] - cx[t]) + (cz[j] - cz[t]) * (cz[j] - cz[t]) < 1.35 * 1.35) out.push(j);
+            }
+          }
+        }
+        return out;
+      }
+      const uses = new Int32Array(pos.count);
+      for (let t = 0; t < triCount; t++) {
+        uses[triVerts[t * 3]]++;
+        uses[triVerts[t * 3 + 1]]++;
+        uses[triVerts[t * 3 + 2]]++;
+      }
+      const seen = new Uint8Array(triCount);
+      const doomed = new Uint8Array(triCount);
+      const dirty = new Set();
+      function bury(tri) {
+        if (doomed[tri]) return;
+        doomed[tri] = 1;
+        hit[tri] = 0;
+        cy[tri] = -30;
+      }
+      for (let t = 0; t < triCount; t++) {
+        if (!hit[t] || seen[t]) continue;
+        const cluster = [];
+        const q = [t];
+        seen[t] = 1;
+        let minx = cx[t], maxx = cx[t], minz = cz[t], maxz = cz[t];
+        while (q.length) {
+          const i = q.pop();
+          cluster.push(i);
+          const nbr = nearTris(i);
+          for (let n = 0; n < nbr.length; n++) {
+            const j = nbr[n];
+            if (seen[j] || cy[j] < -2) continue;
+            const nx0 = Math.min(minx, cx[j]), nx1 = Math.max(maxx, cx[j]);
+            const nz0 = Math.min(minz, cz[j]), nz1 = Math.max(maxz, cz[j]);
+            if (nx1 - nx0 > 4.2 || nz1 - nz0 > 4.2) continue;
+            seen[j] = 1;
+            minx = nx0; maxx = nx1; minz = nz0; maxz = nz1;
+            q.push(j);
+          }
+        }
+        const spanX = maxx - minx, spanZ = maxz - minz;
+        const thin = Math.min(spanX, spanZ) < 0.55;
+        const bulky = Math.max(spanX, spanZ) >= 0.7 && !thin;
+        if (!bulky) {
+          const fenceLike = Math.max(spanX, spanZ) > 0.8;
+          for (let n = 0; n < cluster.length; n++) if (hit[cluster[n]]) bury(cluster[n]);
+          if (fenceLike) posts.push([(minx + maxx) / 2, (minz + maxz) / 2]);
+          continue;
+        }
+        let minY = 1e9, maxY = -1e9;
+        for (let n = 0; n < cluster.length; n++) { const y = cy[cluster[n]]; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+        if (maxY - minY < 0.45) {
+          for (let n = 0; n < cluster.length; n++) if (hit[cluster[n]]) bury(cluster[n]);
+          continue;
+        }
+        const mx = (minx + maxx) / 2, mz = (minz + maxz) / 2;
+        const sample = nearestSample(mx, mz);
+        const reach = Math.max(spanX, spanZ) * 0.5 + CLEAR_R + 0.45;
+        let spot = null;
+        for (let sign = 1; sign >= -1; sign -= 2) {
+          for (let step = reach; step <= reach + 7; step += 1.15) {
+            const tx = mx + sample.nx * sign * step;
+            const tz = mz + sample.nz * sign * step;
+            const moat = Math.hypot(tx, tz + 1);
+            if (inChannel(tx, tz) || (moat > 7.2 && moat < 13.4) || Math.hypot(tx, tz) < 8) continue;
+            let blocked = false;
+            for (let n = 0; n < cluster.length && !blocked; n++) {
+              const ox = cx[cluster[n]] + (tx - mx);
+              const oz = cz[cluster[n]] + (tz - mz);
+              if (inChannel(ox, oz)) blocked = true;
+            }
+            if (!blocked) { spot = [tx - mx, tz - mz]; break; }
+          }
+          if (spot) break;
+        }
+        if (!spot) {
+          for (let n = 0; n < cluster.length; n++) if (inChannel(cx[cluster[n]], cz[cluster[n]])) bury(cluster[n]);
+          continue;
+        }
+        const p0 = new THREE.Vector3(0, 0, 0).applyMatrix4(inv);
+        const p1 = new THREE.Vector3(spot[0], 0, spot[1]).applyMatrix4(inv);
+        const ldx = p1.x - p0.x, ldy = p1.y - p0.y, ldz = p1.z - p0.z;
+        const clusterUse = new Map();
+        const verts = [];
+        for (let n = 0; n < cluster.length; n++) {
+          for (let k = 0; k < 3; k++) {
+            const vi = triVerts[cluster[n] * 3 + k];
+            clusterUse.set(vi, (clusterUse.get(vi) || 0) + 1);
+          }
+        }
+        let shared = false;
+        clusterUse.forEach((n, vi) => { verts.push(vi); if (uses[vi] !== n) shared = true; });
+        if (!shared || !index) {
+          verts.forEach((vi) => {
+            pos.setXYZ(vi, pos.getX(vi) + ldx, pos.getY(vi) + ldy, pos.getZ(vi) + ldz);
+            wx[vi] += spot[0]; wz[vi] += spot[1];
+            dirty.add(vi);
+          });
+        } else {
+          const oldN = pos.count;
+          const arr = new Float32Array((oldN + cluster.length * 3) * 3);
+          arr.set(pos.array);
+          const col = geo.attributes.color;
+          let colArr = null;
+          if (col) { colArr = new Float32Array((oldN + cluster.length * 3) * 3); colArr.set(col.array); }
+          const idx = geo.index.array;
+          let cursor = oldN;
+          for (let n = 0; n < cluster.length; n++) {
+            const t = cluster[n];
+            for (let k = 0; k < 3; k++) {
+              const vi = triVerts[t * 3 + k];
+              arr[cursor * 3] = pos.getX(vi) + ldx;
+              arr[cursor * 3 + 1] = pos.getY(vi) + ldy;
+              arr[cursor * 3 + 2] = pos.getZ(vi) + ldz;
+              if (colArr) { colArr[cursor * 3] = col.getX(vi); colArr[cursor * 3 + 1] = col.getY(vi); colArr[cursor * 3 + 2] = col.getZ(vi); }
+              idx[t * 3 + k] = cursor;
+              triVerts[t * 3 + k] = cursor;
+              cursor++;
+            }
+          }
+          geo.setAttribute("position", new THREE.BufferAttribute(arr, 3));
+          pos = geo.attributes.position;
+          if (colArr) geo.setAttribute("color", new THREE.BufferAttribute(colArr, 3));
+          geo.index.needsUpdate = true;
+          dirty.add(0);
+        }
+        for (let n = 0; n < cluster.length; n++) { cx[cluster[n]] += spot[0]; cz[cluster[n]] += spot[1]; }
+        moved.push([mx + spot[0], mz + spot[1]]);
+      }
+      for (let t = 0; t < triCount; t++) {
+        const a = triVerts[t * 3], b = triVerts[t * 3 + 1], c = triVerts[t * 3 + 2];
+        v.fromBufferAttribute(pos, a).applyMatrix4(M);
+        const ax = v.x, ay = v.y, az = v.z;
+        v.fromBufferAttribute(pos, b).applyMatrix4(M);
+        const bx = v.x, by = v.y, bz = v.z;
+        v.fromBufferAttribute(pos, c).applyMatrix4(M);
+        const x = (ax + bx + v.x) / 3, y = (ay + by + v.y) / 3, z = (az + bz + v.z) / 3;
+        const edge = Math.max(Math.hypot(ax - bx, az - bz), Math.hypot(bx - v.x, bz - v.z), Math.hypot(v.x - ax, v.z - az));
+        if (y > -2 && edge <= 8 && inChannel(x, z)) bury(t);
+      }
+      if (index) {
+        let extra = 0;
+        for (let t = 0; t < triCount; t++) if (doomed[t]) extra += 3;
+        if (extra) {
+          const oldN = pos.count;
+          const arr = new Float32Array((oldN + extra) * 3);
+          arr.set(pos.array);
+          buried.set(0, -30, 0).applyMatrix4(inv);
+          const idx = geo.index.array;
+          let cursor = oldN;
+          for (let t = 0; t < triCount; t++) if (doomed[t]) {
+            for (let k = 0; k < 3; k++) {
+              arr[cursor * 3] = buried.x;
+              arr[cursor * 3 + 1] = buried.y;
+              arr[cursor * 3 + 2] = buried.z;
+              idx[t * 3 + k] = cursor;
+              cursor++;
+            }
+          }
+          geo.setAttribute("position", new THREE.BufferAttribute(arr, 3));
+          pos = geo.attributes.position;
+          geo.index.needsUpdate = true;
+          dirty.add(0);
+        }
+      } else {
+        buried.set(0, -30, 0).applyMatrix4(inv);
+        for (let t = 0; t < triCount; t++) if (doomed[t]) {
+          for (let k = 0; k < 3; k++) pos.setXYZ(triVerts[t * 3 + k], buried.x, buried.y, buried.z);
+          dirty.add(0);
+        }
+      }
+      if (dirty.size) {
+        pos.needsUpdate = true;
+        geo.computeBoundingBox();
+        geo.computeBoundingSphere();
+      }
+      let left = 0;
+      let leftAt = null;
+      const P = geo.attributes.position;
+      const I = geo.index ? geo.index.array : null;
+      for (let t = 0; t < triCount; t++) {
+        const a = I ? I[t * 3] : t * 3, b = I ? I[t * 3 + 1] : t * 3 + 1, c = I ? I[t * 3 + 2] : t * 3 + 2;
+        v.fromBufferAttribute(P, a).applyMatrix4(M);
+        const ax = v.x, ay = v.y, az = v.z;
+        v.fromBufferAttribute(P, b).applyMatrix4(M);
+        const bx = v.x, by = v.y, bz = v.z;
+        v.fromBufferAttribute(P, c).applyMatrix4(M);
+        const x = (ax + bx + v.x) / 3, y = (ay + by + v.y) / 3, z = (az + bz + v.z) / 3;
+        const edge = Math.max(Math.hypot(ax - bx, az - bz), Math.hypot(bx - v.x, bz - v.z), Math.hypot(v.x - ax, v.z - az));
+        if (y > -2 && edge <= 8 && inChannel(x, z)) { left++; if (!leftAt) leftAt = [+x.toFixed(1), +z.toFixed(1)]; }
+      }
+      if (left) stream.left.push({ tris: triCount, left, at: leftAt, span: +Math.max(maxX - minX, maxZ - minZ).toFixed(1) });
+    });
+    const used = [];
+    posts.forEach(([x, z]) => {
+      if (Math.hypot(x, z + 1) < 13.2) return;
+      if (used.some((p) => Math.hypot(p[0] - x, p[1] - z) < 2.4)) return;
+      const sample = nearestSample(x, z);
+      const side = Math.sign((x - sample.x) * sample.nx + (z - sample.z) * sample.nz) || 1;
+      const px = sample.x + sample.nx * side * 3.2;
+      const pz = sample.z + sample.nz * side * 3.2;
+      if (inChannel(px, pz) || Math.hypot(px, pz + 1) < 13) return;
+      used.push([px, pz]);
+    });
+    stream.cleared = { moved: moved.length, posts: used.length, left: stream.left.slice(0, 6) };
+  }
+  function auditChannel() {
+    const examples = [];
+    PE.scene.updateMatrixWorld(true);
+    const v = new THREE.Vector3();
+    PE.scene.traverse((o) => {
+      if (examples.length > 8 || !o.isMesh || !o.geometry || !o.geometry.attributes.position || skipScenery(o)) return;
+      if (o.material && o.material.isShaderMaterial) return;
+      const geo = o.geometry;
+      const pos = geo.attributes.position;
+      const index = geo.index ? geo.index.array : null;
+      const triCount = index ? (index.length / 3) | 0 : (pos.count / 3) | 0;
+      if (triCount > 50000) return;
+      o.updateMatrixWorld(true);
+      const M = o.matrixWorld;
+      let checks = 0;
+      for (let t = 0; t < triCount && examples.length < 8; t++) {
+        const a = index ? index[t * 3] : t * 3;
+        const b = index ? index[t * 3 + 1] : t * 3 + 1;
+        const c = index ? index[t * 3 + 2] : t * 3 + 2;
+        v.fromBufferAttribute(pos, a).applyMatrix4(M);
+        const ax = v.x, ay = v.y, az = v.z;
+        v.fromBufferAttribute(pos, b).applyMatrix4(M);
+        const bx = v.x, by = v.y, bz = v.z;
+        v.fromBufferAttribute(pos, c).applyMatrix4(M);
+        const x = (ax + bx + v.x) / 3, y = (ay + by + v.y) / 3, z = (az + bz + v.z) / 3;
+        if (y < -2 || y > groundAt(x, z) + 2.4) continue;
+        if (Math.max(Math.hypot(ax - bx, az - bz), Math.hypot(bx - v.x, bz - v.z), Math.hypot(v.x - ax, v.z - az)) > 8) continue;
+        checks++;
+        if (inChannel(x, z)) {
+          let p = o, name = "";
+          while (p && !name) { name = p.name || ""; p = p.parent; }
+          examples.push({ x: +x.toFixed(1), z: +z.toFixed(1), name: name || "unnamed", tris: triCount });
+        }
+      }
+    });
+    return { hits: examples.length, examples };
+  }
+  function migrateStream() {
+    buildStream();
+    const s = PE.state();
+    const v = bag();
+    if (v.stream === 1) return;
+    const pos = s.pos;
+    if (pos && Number.isFinite(+pos.x) && Number.isFinite(+pos.z)) {
+      const hit = inDeep(+pos.x, +pos.z);
+      if (hit) {
+        const nx = +(hit.x + hit.nx * 2.6).toFixed(2);
+        const nz = +(hit.z + hit.nz * 2.6).toFixed(2);
+        s.pos = { x: nx, z: nz };
+        if (PE.princess) {
+          PE.princess.position.x = nx;
+          PE.princess.position.z = nz;
+          if (PE.groundH) PE.princess.position.y = PE.groundH(nx, nz);
+        }
+      }
+    }
+    v.stream = 1;
+    persist();
+  }
+  const splash = { phase: "idle", t: 0, cool: 0 };
+  function fallsAnim(dt) {
+    if (MAT.fallSheet && MAT.fallSheet.map) MAT.fallSheet.map.offset.y = (MAT.fallSheet.map.offset.y - dt * 1.15) % 1;
+    const mist = stream.mist;
+    if (!mist) return;
+    stream.mistT = (stream.mistT || 0) + dt;
+    mist.children.forEach((puff, i) => {
+      const base = puff.userData.base;
+      if (!base) return;
+      const u = (stream.mistT * 0.28 + i * 0.13) % 1;
+      puff.position.set(base.x + Math.sin(stream.mistT * 1.4 + i) * 0.35, base.y + u * 2.4, base.z + Math.cos(stream.mistT + i) * 0.25);
+      puff.scale.setScalar(0.55 + u * 1.5);
+    });
+  }
+  function splashTick(dt) {
+    fallsAnim(dt);
+    const dog = PE.scene.getObjectByName("v34-biscuit");
+    splash.cool = Math.max(0, splash.cool - dt);
+    const p = PE.princess.position;
+    const near = !play.boat && Math.hypot(p.x - SPLASH.x, p.z - SPLASH.z) < 5.2;
+    if (splash.phase === "idle" && near && splash.cool <= 0) {
+      splash.phase = "run";
+      splash.t = 0;
+      splash.from = dog ? { x: dog.position.x, z: dog.position.z } : { x: p.x, z: p.z };
+    }
+    if (!dog || splash.phase === "idle") { stream.splash = splash.phase; return; }
+    splash.t += dt;
+    const hop = 0.45 + Math.abs(Math.sin(splash.t * 8)) * 0.9;
+    if (splash.phase === "run") {
+      const k = Math.min(1, splash.t / 0.55);
+      dog.position.x = splash.from.x + (SPLASH.x - splash.from.x) * k;
+      dog.position.z = splash.from.z + (SPLASH.z - splash.from.z) * k;
+      dog.position.y = groundAt(dog.position.x, dog.position.z) + hop * 0.45;
+      dog.rotation.y = Math.atan2(SPLASH.x - dog.position.x, SPLASH.z - dog.position.z);
+      if (k >= 1) { splash.phase = "play"; splash.t = 0; }
+    } else if (splash.phase === "play") {
+      dog.position.set(SPLASH.x, groundAt(SPLASH.x, SPLASH.z) + hop, SPLASH.z);
+      dog.rotation.y += dt * 2;
+      if (dog.userData.tail) dog.userData.tail.rotation.z = Math.sin(splash.t * 14) * 0.7;
+      stream.drops.children.forEach((drop, i) => {
+        const a = splash.t * 7 + i * 0.7;
+        const rad = 0.4 + (i % 4) * 0.35;
+        drop.position.set(SPLASH.x + Math.cos(a) * rad, groundAt(SPLASH.x, SPLASH.z) + 0.35 + ((splash.t * 2.4 + i * 0.17) % 1.5), SPLASH.z + Math.sin(a) * rad);
+      });
+      if (splash.t > 1.5) { splash.phase = "shake"; splash.t = 0; }
+    } else if (splash.phase === "shake") {
+      dog.position.set(SPLASH.x, groundAt(SPLASH.x, SPLASH.z), SPLASH.z);
+      dog.rotation.z = Math.sin(splash.t * 22) * 0.28;
+      if (dog.userData.tail) dog.userData.tail.rotation.z = Math.sin(splash.t * 16) * 0.9;
+      if (splash.t > 0.7) {
+        dog.rotation.z = 0;
+        splash.phase = "idle";
+        splash.cool = 8;
+        stream.drops.children.forEach((drop) => drop.position.set(0, -4, 0));
+      }
+    }
+    stream.splash = splash.phase;
+  }
   function lawn() {
     if (PE.scene.getObjectByName("v45-lawn")) return;
     mats();
@@ -988,6 +2021,7 @@
       orig(dt, elapsed, dt2);
       if (play.boat) steerBoat(typeof dt === "number" ? dt : 0.016);
       bridgeTick();
+      splashTick(typeof dt === "number" ? dt : 0.016);
       if (play.boat) paddleCam();
     };
     gate._v45boat = 1;
@@ -1008,6 +2042,12 @@
   function frame(dt) {
     dt = Math.max(0, Math.min(0.05, dt || 0.016));
     if (MAT.glow) MAT.glow.emissiveIntensity = 0.65 + Math.sin(performance.now() / 400) * 0.2;
+    if (MAT.spark && MAT.spark.map) MAT.spark.map.offset.y -= dt * 0.45;
+    if (MAT.falls && MAT.falls.map) MAT.falls.map.offset.y -= dt * 1.6;
+    if (stream.foam) {
+      const s = 1 + Math.sin(performance.now() / 220) * 0.06;
+      stream.foam.scale.set(s, s, s);
+    }
     if (play.ride) {
       play.ride.t += dt;
       const a = play.ride.a + play.ride.t * 0.55;
@@ -1539,6 +2579,7 @@
 
   function aimRing() {
     if (!PE.setCam || !PE.snapCamera) return;
+    if (camHold) { PE.setCam(camHold[0], camHold[1], camHold[2]); PE.snapCamera(); return; }
     const inside = PE.v3 && PE.v3.castle && PE.v3.castle.inCastle;
     if (inside) return;
     if (!nearId) {
@@ -1626,6 +2667,7 @@
 
   migrateLayout();
   migrateMoat();
+  migrateStream();
   hookSwanLook();
   hookGate();
   hookStageCam();
@@ -1653,4 +2695,20 @@
   PE.review = { current: reviewCurrent, answer: reviewAnswer, week: weekId };
   PE.grownups = { summary, note: noteAnswer };
   PE.grounds = { oldR: OLD_R, newR: NEW_R, scale: SCALE };
+  PE.stream = {
+    samples: () => stream.samples,
+    inlet: stream.inlet,
+    outlet: stream.outlet,
+    source: stream.source,
+    bridges: () => BRIDGES,
+    splash: () => stream.splash,
+    splashAt: SPLASH,
+    inDeep,
+    tick: splashTick,
+    lift: bridgeLift,
+    lockCam: (x, y, z) => { camHold = [x, y, z]; },
+    horizon: () => stream.horizon,
+    audit: auditChannel,
+    cleared: () => stream.cleared
+  };
 })();
