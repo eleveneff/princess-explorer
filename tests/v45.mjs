@@ -187,7 +187,7 @@ const moat = await moatPage.evaluate(() => {
   const water = PE.scene.getObjectByName("moat-water");
   const g = water.geometry.parameters;
   const width = g.outerRadius - g.innerRadius;
-  const oldWidth = 2.6;
+  const oldWidth = 3.32;
   PE.state().score = 900;
   PE.care.commit("swans");
   const coins = PE.care.coins();
@@ -224,13 +224,17 @@ const moat = await moatPage.evaluate(() => {
   const saved = { score: PE.care.coins(), owned: !!PE.state().v45.care.owned.swans, moat: PE.state().v45.moat };
   return { width: +width.toFixed(2), ratio: +(width / oldWidth).toFixed(2), pos: PE.state().pos, coins, boarded, radius: +radius.toFixed(2), mid: PE.care.moat().mid, a0, aForward, aBack, stuck, refused, left, raised: +raised.toFixed(2), lowered: +lowered.toFixed(2), foot, saved };
 });
-check("the moat water ring is about 30 percent wider", moat.ratio >= 1.25 && moat.ratio <= 1.35, JSON.stringify(moat));
-check("a saved spot in the new water moves to land once", moat.pos && Math.hypot(moat.pos.x, moat.pos.z + 1) > 12 && moat.saved.moat === 1, JSON.stringify(moat.pos));
+check("the moat water ring is about 1.5 times as wide", moat.ratio >= 1.45 && moat.ratio <= 1.55, JSON.stringify(moat));
+check("a saved spot in the new water moves to land once", moat.pos && Math.hypot(moat.pos.x, moat.pos.z + 1) > 13.8 && moat.saved.moat === 2, JSON.stringify(moat.pos));
 check("boarding the swan keeps the coins and puts her on the water ring", moat.boarded && moat.coins === 870 && Math.abs(moat.radius - moat.mid) < 0.05, JSON.stringify(moat));
 check("the boat paddles both ways and stays on the ring", moat.aForward > moat.a0 && moat.aBack < moat.aForward && moat.stuck, JSON.stringify(moat));
 check("she can step off only at the dock", moat.refused.far === true && moat.refused.boating === true && moat.left.boating === false, JSON.stringify(moat));
 check("the drawbridge rises in about 1.5 seconds and lowers after she passes", moat.raised < 0.05 && moat.lowered > 0.9, JSON.stringify(moat));
 check("on foot the drawbridge stays down and the save keeps the boat", moat.foot && moat.saved.score === 870 && moat.saved.owned, JSON.stringify(moat.saved));
+await moatPage.reload({ waitUntil: "networkidle0" });
+await moatPage.waitForFunction(() => window.PrincessExplorer && window.PrincessExplorer.care);
+const moatAgain = await moatPage.evaluate(() => window.PrincessExplorer.state().pos);
+check("reloading does not move that moat position again", moatAgain.x === moat.pos.x && moatAgain.z === moat.pos.z, JSON.stringify(moatAgain));
 await moatPage.close();
 
 async function boxes(width, height, touch) {

@@ -7,7 +7,7 @@
   const SCALE = 1.3;
   const OLD_R = 15;
   const NEW_R = 19.5;
-  const MOAT = { x: 0, z: -1, inner: 7.6, outer: 10.72, mid: 9.16 };
+  const MOAT = { x: 0, z: -1, inner: 7.6, outer: 12.28, mid: 9.94 };
 
   function coins() {
     return Math.max(0, Math.floor(+PE.state().score || 0));
@@ -54,15 +54,15 @@
   function migrateMoat() {
     const s = PE.state();
     const v = bag();
-    if (v.moat === 1) return;
+    if (v.moat === 2) return;
     const pos = s.pos;
     if (pos && Number.isFinite(+pos.x) && Number.isFinite(+pos.z) && Math.abs(+pos.x) < 80) {
       const dx = +pos.x - MOAT.x, dz = +pos.z - MOAT.z;
       const r = Math.hypot(dx, dz);
-      const onBridge = Math.abs(+pos.x) < 1.8 && +pos.z > 5.5 && +pos.z < 14;
-      if (!onBridge && r > MOAT.inner - 0.25 && r < MOAT.outer + 0.85) {
+      const onBridge = Math.abs(+pos.x) < 2 && +pos.z > 5.5 && +pos.z < 14.6;
+      if (!onBridge && r > MOAT.inner - 0.25 && r < MOAT.outer + 0.95) {
         const ang = Math.atan2(dz, dx);
-        const nr = MOAT.outer + 1.75;
+        const nr = MOAT.outer + 1.9;
         const nx = +(MOAT.x + Math.cos(ang) * nr).toFixed(2);
         const nz = +(MOAT.z + Math.sin(ang) * nr).toFixed(2);
         s.pos = { x: nx, z: nz };
@@ -73,7 +73,7 @@
         }
       }
     }
-    v.moat = 1;
+    v.moat = 2;
     persist();
   }
 
@@ -195,7 +195,7 @@
     { id: "training", name: "Fencing and Jiu Jitsu Training Hall", price: 50, need: [], blurb: "Practice spots and ribbons.", ang: 98, rad: 16.8, front: 4.8 },
     { id: "court", name: "Royal Tennis Court", price: 40, need: [], blurb: "A court beside the castle, tied to the tennis game.", ang: 178, rad: 15.3, front: 5.4 },
     { id: "observatory", name: "Star Observatory", price: 45, need: [], blurb: "A telescope dome and constellation patterns.", ang: 198, rad: 16.4, front: 4.8 },
-    { id: "swans", name: "Moat Swan Boats", price: 30, need: [], blurb: "Pedal a swan boat around the moat.", ang: 50, rad: 10.25, front: 3.85, side: 2.2 },
+    { id: "swans", name: "Moat Swan Boats", price: 30, need: [], blurb: "Pedal a swan boat around the moat.", ang: 68, rad: 11.05, front: 4.15, side: 2.45 },
     { id: "stage", name: "Grand Ballroom Chandelier and Stage", price: 35, need: [], blurb: "A dance stage and a glowing chandelier inside the ballroom.", ang: 90, rad: 18, front: 4 },
     { id: "corgi", name: "Corgi Castle for Sir Biscuit", price: 25, need: [], blurb: "A doghouse and a treat game. No coins, just a happy corgi.", ang: 308, rad: 15.2, front: 4.6 }
   ];
@@ -255,7 +255,7 @@
     mats();
     const g = new THREE.Group();
     g.name = "v45-lawn";
-    const ring = new THREE.Mesh(new THREE.RingGeometry(11.65, NEW_R, 64), new THREE.MeshLambertMaterial({ color: "#b6e39a" }));
+    const ring = new THREE.Mesh(new THREE.RingGeometry(13.35, NEW_R, 64), new THREE.MeshLambertMaterial({ color: "#b6e39a" }));
     ring.rotation.x = -Math.PI / 2;
     ring.position.y = 0.035;
     ring.receiveShadow = true;
@@ -607,7 +607,7 @@
         f.add(mesh(CYL, MAT.gold, 0.82, 1.28, 1.68, 0.035, 0.34, 0.035));
         f.add(mesh(SPH, MAT.glow, 0.82, 1.5, 1.68, 0.12));
         const boat = swanBoat("care-swan-boat");
-        boat.scale.set(1.18, 1.18, 1.18);
+        boat.scale.set(0.75, 0.75, 0.75);
         boat.position.set(1.45, 0.02, -1.05);
         boat.userData.home = { x: 1.45, y: 0.02, z: -1.05, ry: 0.15 };
         boat.rotation.y = 0.15;
@@ -910,7 +910,9 @@
     const sway = Math.sin(performance.now() / 1000 * 1.1) * 0.05;
     const x = MOAT.x + Math.cos(a) * MOAT.mid;
     const z = MOAT.z + Math.sin(a) * MOAT.mid;
-    PE.princess.position.set(x, 0.55 + bob, z);
+    if (play.savedScale == null) play.savedScale = PE.princess.scale.x || 1;
+    PE.princess.scale.setScalar(play.savedScale * 0.74);
+    PE.princess.position.set(x, 0.34 + bob, z);
     PE.princess.rotation.y = Math.atan2(-Math.sin(a) * facing, Math.cos(a) * facing);
     const boat = PE.scene.getObjectByName("care-swan-boat");
     if (boat && boat.parent) {
@@ -932,6 +934,10 @@
   function leaveBoat() {
     play.boat = null;
     window.__swanRaise = false;
+    if (play.savedScale != null && PE.princess) {
+      PE.princess.scale.setScalar(play.savedScale);
+      play.savedScale = null;
+    }
     const home = spotOf(def("swans"));
     PE.princess.position.set(home.x, PE.groundH ? PE.groundH(home.x, home.z) : 0, home.z);
     const parked = PE.scene.getObjectByName("care-swan-boat");
@@ -1544,9 +1550,9 @@
     const ox = Math.cos(a), oz = Math.sin(a);
     if (d.id === "swans") {
       const narrow = (window.innerWidth || 1280) < 700;
-      const side = narrow ? -1.35 : -2.35;
-      const out = narrow ? 7.2 : 2.85;
-      const lift = narrow ? 3.8 : 2.15;
+      const side = narrow ? -0.7 : -1.15;
+      const out = narrow ? 8.8 : 6.6;
+      const lift = narrow ? 5.4 : 3.5;
       PE.setCam(Math.sin(a) * side + Math.cos(a) * out, lift, -Math.cos(a) * side + Math.sin(a) * out);
     }
     else {
@@ -1567,7 +1573,7 @@
       const ox = Math.cos(a), oz = Math.sin(a);
       const tx = Math.sin(a), tz = -Math.cos(a);
       const c = centerOf(d);
-      orig(c.x + ox * 0.2 + tx * 0.55, 1.05, c.z + oz * 0.2 + tz * 0.55);
+      orig(c.x + ox * 1.35 + tx * 0.85, 1.15, c.z + oz * 1.35 + tz * 0.85);
     };
     cam._v45swan = 1;
   }
