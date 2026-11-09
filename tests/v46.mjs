@@ -92,6 +92,8 @@ const stillIn = await page.evaluate(() => {
   return window.PrincessExplorer.stream.inDeep(p.x, p.z);
 });
 check("the relocated save is on land", stillIn === null, JSON.stringify(report.pos));
+const scenery = await page.evaluate(() => window.PrincessExplorer.stream.audit());
+check("no scenery sits in the stream", scenery.hits === 0, JSON.stringify(scenery));
 await page.reload({ waitUntil: "networkidle0" });
 await page.waitForFunction(() => window.PrincessExplorer && window.PrincessExplorer.stream);
 const again = await page.evaluate(() => window.PrincessExplorer.state().pos);

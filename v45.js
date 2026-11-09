@@ -456,6 +456,7 @@
     const up = sampleCurve(curveOf(UP), 80);
     const down = sampleCurve(curveOf(DOWN), 72);
     stream.samples = up.concat(down);
+    stream.spans = [up, down];
     [up, down].forEach((samples) => {
       root.add(ribbonMesh(samples, 2.55, 0.08, MAT.sand));
       root.add(sideLip(samples, 1, 1.65, 2.45, 0.42, MAT.wet));
@@ -594,6 +595,377 @@
       wrapped._stream = true;
       PE.gate.liftAt = wrapped;
     }
+    clearChannel(root);
+  }
+  const CLEAR_R = 2.85;
+  function pathDist(x, z) {
+    let best = 1e9;
+    const spans = stream.spans || [];
+    for (let s = 0; s < spans.length; s++) {
+      const span = spans[s];
+      for (let i = 1; i < span.length; i++) {
+        const a = span[i - 1], b = span[i];
+        const dx = b.x - a.x, dz = b.z - a.z;
+        const l2 = dx * dx + dz * dz || 1e-6;
+        let t = ((x - a.x) * dx + (z - a.z) * dz) / l2;
+        t = t < 0 ? 0 : t > 1 ? 1 : t;
+        const d = Math.hypot(x - (a.x + dx * t), z - (a.z + dz * t));
+        if (d < best) best = d;
+      }
+    }
+    return best;
+  }
+  function inChannel(x, z) {
+    if (pathDist(x, z) < CLEAR_R) return true;
+    if (Math.hypot(x - SPLASH.x, z - SPLASH.z) < SPLASH.r + 1.05) return true;
+    if (Math.hypot(x - stream.source.x, z - stream.source.z) < 3.4) return true;
+    return false;
+  }
+  function nearestSample(x, z) {
+    let best = stream.samples[0], d = 1e9;
+    for (let i = 0; i < stream.samples.length; i++) {
+      const s = stream.samples[i];
+      const dd = (s.x - x) * (s.x - x) + (s.z - z) * (s.z - z);
+      if (dd < d) { d = dd; best = s; }
+    }
+    return best;
+  }
+  function skipScenery(o) {
+    let p = o;
+    while (p) {
+      const n = p.name || "";
+      if (n === "v46-stream" || n === "v34-moat" || n === "v45-lawn" || n === "v34-biscuit") return true;
+      if (p === PE.princess || p.isSkinnedMesh) return true;
+      if (/castle|princess|sky|cloud|moat/i.test(n)) return true;
+      p = p.parent;
+    }
+    return false;
+  }
+  function clearChannel(root) {
+    const moved = [];
+    const posts = [];
+    stream.left = [];
+    const v = new THREE.Vector3();
+    const inv = new THREE.Matrix4();
+    const buried = new THREE.Vector3();
+    PE.scene.updateMatrixWorld(true);
+    PE.scene.traverse((o) => {
+      if (!o.isMesh || !o.geometry || !o.geometry.attributes || !o.geometry.attributes.position || skipScenery(o)) return;
+      if (o.material && o.material.isShaderMaterial) return;
+      o.updateMatrixWorld(true);
+      let geo = o.geometry;
+      if (!geo.userData._streamOwned) {
+        geo = geo.clone();
+        geo.userData._streamOwned = 1;
+        o.geometry = geo;
+      }
+      let pos = geo.attributes.position;
+      const index = geo.index ? geo.index.array : null;
+      const triCount = index ? (index.length / 3) | 0 : (pos.count / 3) | 0;
+      if (triCount < 1 || triCount > 80000) return;
+      const M = o.matrixWorld;
+      inv.copy(M).invert();
+      const wx = new Float32Array(pos.count);
+      const wy = new Float32Array(pos.count);
+      const wz = new Float32Array(pos.count);
+      let minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9;
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(M);
+        wx[i] = v.x; wy[i] = v.y; wz[i] = v.z;
+        if (v.x < minX) minX = v.x;
+        if (v.x > maxX) maxX = v.x;
+        if (v.z < minZ) minZ = v.z;
+        if (v.z > maxZ) maxZ = v.z;
+      }
+      if (maxX - minX > 220 || maxZ - minZ > 220) return;
+      if (maxX < -48 || minX > 40 || maxZ < -58 || minZ > 48) return;
+      const cx = new Float32Array(triCount);
+      const cz = new Float32Array(triCount);
+      const cy = new Float32Array(triCount);
+      const triVerts = new Int32Array(triCount * 3);
+      const hit = new Uint8Array(triCount);
+      let any = false;
+      for (let t = 0; t < triCount; t++) {
+        const a = index ? index[t * 3] : t * 3;
+        const b = index ? index[t * 3 + 1] : t * 3 + 1;
+        const c = index ? index[t * 3 + 2] : t * 3 + 2;
+        triVerts[t * 3] = a; triVerts[t * 3 + 1] = b; triVerts[t * 3 + 2] = c;
+        const x = (wx[a] + wx[b] + wx[c]) / 3;
+        const y = (wy[a] + wy[b] + wy[c]) / 3;
+        const z = (wz[a] + wz[b] + wz[c]) / 3;
+        cx[t] = x; cy[t] = y; cz[t] = z;
+        const edge = Math.max(Math.hypot(wx[a] - wx[b], wz[a] - wz[b]), Math.hypot(wx[b] - wx[c], wz[b] - wz[c]), Math.hypot(wx[c] - wx[a], wz[c] - wz[a]));
+        if (edge > 8) continue;
+        if (y > -2 && inChannel(x, z)) { hit[t] = 1; any = true; }
+      }
+      if (!any) return;
+      const cell = 1.3;
+      const grid = new Map();
+      const key = (x, z) => ((Math.floor(x / cell) + 512) << 16) ^ (Math.floor(z / cell) + 512);
+      for (let t = 0; t < triCount; t++) {
+        if (cy[t] < -2) continue;
+        const k = key(cx[t], cz[t]);
+        const list = grid.get(k);
+        if (list) list.push(t);
+        else grid.set(k, [t]);
+      }
+      function nearTris(t) {
+        const out = [];
+        const gx = Math.floor(cx[t] / cell), gz = Math.floor(cz[t] / cell);
+        for (let ix = gx - 1; ix <= gx + 1; ix++) {
+          for (let iz = gz - 1; iz <= gz + 1; iz++) {
+            const list = grid.get(((ix + 512) << 16) ^ (iz + 512));
+            if (!list) continue;
+            for (let n = 0; n < list.length; n++) {
+              const j = list[n];
+              if (j === t) continue;
+              if ((cx[j] - cx[t]) * (cx[j] - cx[t]) + (cz[j] - cz[t]) * (cz[j] - cz[t]) < 1.35 * 1.35) out.push(j);
+            }
+          }
+        }
+        return out;
+      }
+      const uses = new Int32Array(pos.count);
+      for (let t = 0; t < triCount; t++) {
+        uses[triVerts[t * 3]]++;
+        uses[triVerts[t * 3 + 1]]++;
+        uses[triVerts[t * 3 + 2]]++;
+      }
+      const seen = new Uint8Array(triCount);
+      const doomed = new Uint8Array(triCount);
+      const dirty = new Set();
+      function bury(tri) {
+        if (doomed[tri]) return;
+        doomed[tri] = 1;
+        hit[tri] = 0;
+        cy[tri] = -30;
+      }
+      for (let t = 0; t < triCount; t++) {
+        if (!hit[t] || seen[t]) continue;
+        const cluster = [];
+        const q = [t];
+        seen[t] = 1;
+        let minx = cx[t], maxx = cx[t], minz = cz[t], maxz = cz[t];
+        while (q.length) {
+          const i = q.pop();
+          cluster.push(i);
+          const nbr = nearTris(i);
+          for (let n = 0; n < nbr.length; n++) {
+            const j = nbr[n];
+            if (seen[j] || cy[j] < -2) continue;
+            const nx0 = Math.min(minx, cx[j]), nx1 = Math.max(maxx, cx[j]);
+            const nz0 = Math.min(minz, cz[j]), nz1 = Math.max(maxz, cz[j]);
+            if (nx1 - nx0 > 4.2 || nz1 - nz0 > 4.2) continue;
+            seen[j] = 1;
+            minx = nx0; maxx = nx1; minz = nz0; maxz = nz1;
+            q.push(j);
+          }
+        }
+        const spanX = maxx - minx, spanZ = maxz - minz;
+        const thin = Math.min(spanX, spanZ) < 0.55;
+        const bulky = Math.max(spanX, spanZ) >= 0.7 && !thin;
+        if (!bulky) {
+          const fenceLike = Math.max(spanX, spanZ) > 0.8;
+          for (let n = 0; n < cluster.length; n++) if (hit[cluster[n]]) bury(cluster[n]);
+          if (fenceLike) posts.push([(minx + maxx) / 2, (minz + maxz) / 2]);
+          continue;
+        }
+        let minY = 1e9, maxY = -1e9;
+        for (let n = 0; n < cluster.length; n++) { const y = cy[cluster[n]]; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+        if (maxY - minY < 0.45) {
+          for (let n = 0; n < cluster.length; n++) if (hit[cluster[n]]) bury(cluster[n]);
+          continue;
+        }
+        const mx = (minx + maxx) / 2, mz = (minz + maxz) / 2;
+        const sample = nearestSample(mx, mz);
+        const reach = Math.max(spanX, spanZ) * 0.5 + CLEAR_R + 0.45;
+        let spot = null;
+        for (let sign = 1; sign >= -1; sign -= 2) {
+          for (let step = reach; step <= reach + 7; step += 1.15) {
+            const tx = mx + sample.nx * sign * step;
+            const tz = mz + sample.nz * sign * step;
+            const moat = Math.hypot(tx, tz + 1);
+            if (inChannel(tx, tz) || (moat > 7.2 && moat < 13.4) || Math.hypot(tx, tz) < 8) continue;
+            let blocked = false;
+            for (let n = 0; n < cluster.length && !blocked; n++) {
+              const ox = cx[cluster[n]] + (tx - mx);
+              const oz = cz[cluster[n]] + (tz - mz);
+              if (inChannel(ox, oz)) blocked = true;
+            }
+            if (!blocked) { spot = [tx - mx, tz - mz]; break; }
+          }
+          if (spot) break;
+        }
+        if (!spot) {
+          for (let n = 0; n < cluster.length; n++) if (inChannel(cx[cluster[n]], cz[cluster[n]])) bury(cluster[n]);
+          continue;
+        }
+        const p0 = new THREE.Vector3(0, 0, 0).applyMatrix4(inv);
+        const p1 = new THREE.Vector3(spot[0], 0, spot[1]).applyMatrix4(inv);
+        const ldx = p1.x - p0.x, ldy = p1.y - p0.y, ldz = p1.z - p0.z;
+        const clusterUse = new Map();
+        const verts = [];
+        for (let n = 0; n < cluster.length; n++) {
+          for (let k = 0; k < 3; k++) {
+            const vi = triVerts[cluster[n] * 3 + k];
+            clusterUse.set(vi, (clusterUse.get(vi) || 0) + 1);
+          }
+        }
+        let shared = false;
+        clusterUse.forEach((n, vi) => { verts.push(vi); if (uses[vi] !== n) shared = true; });
+        if (!shared || !index) {
+          verts.forEach((vi) => {
+            pos.setXYZ(vi, pos.getX(vi) + ldx, pos.getY(vi) + ldy, pos.getZ(vi) + ldz);
+            wx[vi] += spot[0]; wz[vi] += spot[1];
+            dirty.add(vi);
+          });
+        } else {
+          const oldN = pos.count;
+          const arr = new Float32Array((oldN + cluster.length * 3) * 3);
+          arr.set(pos.array);
+          const col = geo.attributes.color;
+          let colArr = null;
+          if (col) { colArr = new Float32Array((oldN + cluster.length * 3) * 3); colArr.set(col.array); }
+          const idx = geo.index.array;
+          let cursor = oldN;
+          for (let n = 0; n < cluster.length; n++) {
+            const t = cluster[n];
+            for (let k = 0; k < 3; k++) {
+              const vi = triVerts[t * 3 + k];
+              arr[cursor * 3] = pos.getX(vi) + ldx;
+              arr[cursor * 3 + 1] = pos.getY(vi) + ldy;
+              arr[cursor * 3 + 2] = pos.getZ(vi) + ldz;
+              if (colArr) { colArr[cursor * 3] = col.getX(vi); colArr[cursor * 3 + 1] = col.getY(vi); colArr[cursor * 3 + 2] = col.getZ(vi); }
+              idx[t * 3 + k] = cursor;
+              triVerts[t * 3 + k] = cursor;
+              cursor++;
+            }
+          }
+          geo.setAttribute("position", new THREE.BufferAttribute(arr, 3));
+          pos = geo.attributes.position;
+          if (colArr) geo.setAttribute("color", new THREE.BufferAttribute(colArr, 3));
+          geo.index.needsUpdate = true;
+          dirty.add(0);
+        }
+        for (let n = 0; n < cluster.length; n++) { cx[cluster[n]] += spot[0]; cz[cluster[n]] += spot[1]; }
+        moved.push([mx + spot[0], mz + spot[1]]);
+      }
+      for (let t = 0; t < triCount; t++) {
+        const a = triVerts[t * 3], b = triVerts[t * 3 + 1], c = triVerts[t * 3 + 2];
+        v.fromBufferAttribute(pos, a).applyMatrix4(M);
+        const ax = v.x, ay = v.y, az = v.z;
+        v.fromBufferAttribute(pos, b).applyMatrix4(M);
+        const bx = v.x, by = v.y, bz = v.z;
+        v.fromBufferAttribute(pos, c).applyMatrix4(M);
+        const x = (ax + bx + v.x) / 3, y = (ay + by + v.y) / 3, z = (az + bz + v.z) / 3;
+        const edge = Math.max(Math.hypot(ax - bx, az - bz), Math.hypot(bx - v.x, bz - v.z), Math.hypot(v.x - ax, v.z - az));
+        if (y > -2 && edge <= 8 && inChannel(x, z)) bury(t);
+      }
+      if (index) {
+        let extra = 0;
+        for (let t = 0; t < triCount; t++) if (doomed[t]) extra += 3;
+        if (extra) {
+          const oldN = pos.count;
+          const arr = new Float32Array((oldN + extra) * 3);
+          arr.set(pos.array);
+          buried.set(0, -30, 0).applyMatrix4(inv);
+          const idx = geo.index.array;
+          let cursor = oldN;
+          for (let t = 0; t < triCount; t++) if (doomed[t]) {
+            for (let k = 0; k < 3; k++) {
+              arr[cursor * 3] = buried.x;
+              arr[cursor * 3 + 1] = buried.y;
+              arr[cursor * 3 + 2] = buried.z;
+              idx[t * 3 + k] = cursor;
+              cursor++;
+            }
+          }
+          geo.setAttribute("position", new THREE.BufferAttribute(arr, 3));
+          pos = geo.attributes.position;
+          geo.index.needsUpdate = true;
+          dirty.add(0);
+        }
+      } else {
+        buried.set(0, -30, 0).applyMatrix4(inv);
+        for (let t = 0; t < triCount; t++) if (doomed[t]) {
+          for (let k = 0; k < 3; k++) pos.setXYZ(triVerts[t * 3 + k], buried.x, buried.y, buried.z);
+          dirty.add(0);
+        }
+      }
+      if (dirty.size) {
+        pos.needsUpdate = true;
+        geo.computeBoundingBox();
+        geo.computeBoundingSphere();
+      }
+      let left = 0;
+      let leftAt = null;
+      const P = geo.attributes.position;
+      const I = geo.index ? geo.index.array : null;
+      for (let t = 0; t < triCount; t++) {
+        const a = I ? I[t * 3] : t * 3, b = I ? I[t * 3 + 1] : t * 3 + 1, c = I ? I[t * 3 + 2] : t * 3 + 2;
+        v.fromBufferAttribute(P, a).applyMatrix4(M);
+        const ax = v.x, ay = v.y, az = v.z;
+        v.fromBufferAttribute(P, b).applyMatrix4(M);
+        const bx = v.x, by = v.y, bz = v.z;
+        v.fromBufferAttribute(P, c).applyMatrix4(M);
+        const x = (ax + bx + v.x) / 3, y = (ay + by + v.y) / 3, z = (az + bz + v.z) / 3;
+        const edge = Math.max(Math.hypot(ax - bx, az - bz), Math.hypot(bx - v.x, bz - v.z), Math.hypot(v.x - ax, v.z - az));
+        if (y > -2 && edge <= 8 && inChannel(x, z)) { left++; if (!leftAt) leftAt = [+x.toFixed(1), +z.toFixed(1)]; }
+      }
+      if (left) stream.left.push({ tris: triCount, left, at: leftAt, span: +Math.max(maxX - minX, maxZ - minZ).toFixed(1) });
+    });
+    const used = [];
+    posts.forEach(([x, z]) => {
+      if (Math.hypot(x, z + 1) < 13.2) return;
+      if (used.some((p) => Math.hypot(p[0] - x, p[1] - z) < 2.4)) return;
+      const sample = nearestSample(x, z);
+      const side = Math.sign((x - sample.x) * sample.nx + (z - sample.z) * sample.nz) || 1;
+      const px = sample.x + sample.nx * side * 3.2;
+      const pz = sample.z + sample.nz * side * 3.2;
+      if (inChannel(px, pz) || Math.hypot(px, pz + 1) < 13) return;
+      const post = mesh(CYL, MAT.bridgeWood, px, groundAt(px, pz) + 0.55, pz, 0.11, 1.05, 0.11);
+      post.name = "stream-fence-post";
+      root.add(post);
+      used.push([px, pz]);
+    });
+    stream.cleared = { moved: moved.length, posts: used.length, left: stream.left.slice(0, 6) };
+  }
+  function auditChannel() {
+    const examples = [];
+    PE.scene.updateMatrixWorld(true);
+    const v = new THREE.Vector3();
+    PE.scene.traverse((o) => {
+      if (examples.length > 8 || !o.isMesh || !o.geometry || !o.geometry.attributes.position || skipScenery(o)) return;
+      if (o.material && o.material.isShaderMaterial) return;
+      const geo = o.geometry;
+      const pos = geo.attributes.position;
+      const index = geo.index ? geo.index.array : null;
+      const triCount = index ? (index.length / 3) | 0 : (pos.count / 3) | 0;
+      if (triCount > 50000) return;
+      o.updateMatrixWorld(true);
+      const M = o.matrixWorld;
+      let checks = 0;
+      for (let t = 0; t < triCount && examples.length < 8; t++) {
+        const a = index ? index[t * 3] : t * 3;
+        const b = index ? index[t * 3 + 1] : t * 3 + 1;
+        const c = index ? index[t * 3 + 2] : t * 3 + 2;
+        v.fromBufferAttribute(pos, a).applyMatrix4(M);
+        const ax = v.x, ay = v.y, az = v.z;
+        v.fromBufferAttribute(pos, b).applyMatrix4(M);
+        const bx = v.x, by = v.y, bz = v.z;
+        v.fromBufferAttribute(pos, c).applyMatrix4(M);
+        const x = (ax + bx + v.x) / 3, y = (ay + by + v.y) / 3, z = (az + bz + v.z) / 3;
+        if (y < -2) continue;
+        if (Math.max(Math.hypot(ax - bx, az - bz), Math.hypot(bx - v.x, bz - v.z), Math.hypot(v.x - ax, v.z - az)) > 8) continue;
+        checks++;
+        if (inChannel(x, z)) {
+          let p = o, name = "";
+          while (p && !name) { name = p.name || ""; p = p.parent; }
+          examples.push({ x: +x.toFixed(1), z: +z.toFixed(1), name: name || "unnamed", tris: triCount });
+        }
+      }
+    });
+    return { hits: examples.length, examples };
   }
   function migrateStream() {
     buildStream();
@@ -2084,6 +2456,8 @@
     inDeep,
     tick: splashTick,
     lift: bridgeLift,
-    lockCam: (x, y, z) => { camHold = [x, y, z]; }
+    lockCam: (x, y, z) => { camHold = [x, y, z]; },
+    audit: auditChannel,
+    cleared: () => stream.cleared
   };
 })();
