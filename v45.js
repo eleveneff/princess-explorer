@@ -170,7 +170,7 @@
     { id: "training", name: "Fencing and Jiu Jitsu Training Hall", price: 50, need: [], blurb: "Practice spots and ribbons.", ang: 98, rad: 16.8, front: 4.8 },
     { id: "court", name: "Royal Tennis Court", price: 40, need: [], blurb: "A court beside the castle, tied to the tennis game.", ang: 178, rad: 15.3, front: 5.4 },
     { id: "observatory", name: "Star Observatory", price: 45, need: [], blurb: "A telescope dome and constellation patterns.", ang: 198, rad: 16.4, front: 4.8 },
-    { id: "swans", name: "Moat Swan Boats", price: 30, need: [], blurb: "Pedal a swan boat around the moat.", ang: 50, rad: 10.7, front: 3.5, side: 1.85 },
+    { id: "swans", name: "Moat Swan Boats", price: 30, need: [], blurb: "Pedal a swan boat around the moat.", ang: 50, rad: 10.6, front: 3.7, side: 2.15 },
     { id: "stage", name: "Grand Ballroom Chandelier and Stage", price: 35, need: [], blurb: "A dance stage and a glowing chandelier inside the ballroom.", ang: 90, rad: 18, front: 4 },
     { id: "corgi", name: "Corgi Castle for Sir Biscuit", price: 25, need: [], blurb: "A doghouse and a treat game. No coins, just a happy corgi.", ang: 308, rad: 15.2, front: 4.6 }
   ];
@@ -204,6 +204,8 @@
     MAT.wood = new THREE.MeshLambertMaterial({ color: "#c98b4a" });
     MAT.glow = new THREE.MeshLambertMaterial({ color: "#fff6d0", emissive: "#ffe08a", emissiveIntensity: 0.85 });
     MAT.white = new THREE.MeshLambertMaterial({ color: "#fffaf6" });
+    MAT.swan = new THREE.MeshPhongMaterial({ color: "#fffdf8", emissive: "#f3efe8", emissiveIntensity: 0.18, shininess: 48, specular: "#ffffff" });
+    MAT.ripple = new THREE.MeshLambertMaterial({ color: "#e7f8ff", transparent: true, opacity: 0.55, emissive: "#9ed8ee", emissiveIntensity: 0.25, depthWrite: false });
     MAT.roof = new THREE.MeshLambertMaterial({ color: "#b57bff", emissive: "#7a4fd6", emissiveIntensity: 0.2 });
     MAT.hedge = new THREE.MeshLambertMaterial({ color: "#3e9a48", emissive: "#2f7a3a", emissiveIntensity: 0.12 });
     MAT.court = new THREE.MeshLambertMaterial({ color: "#3f8f5a" });
@@ -328,19 +330,42 @@
   function swanBoat(name) {
     const boat = new THREE.Group();
     boat.name = name;
-    boat.add(mesh(BOX, MAT.wood, 0, 0.32, 0, 2.6, 0.28, 1.05));
-    boat.add(mesh(BOX, MAT.white, 0, 0.48, 0, 2.35, 0.12, 0.88));
-    boat.add(mesh(BOX, MAT.gold, -0.2, 0.66, 0, 0.7, 0.1, 0.55));
-    boat.add(mesh(BOX, MAT.wood, -0.2, 0.95, -0.32, 0.62, 0.45, 0.08));
-    boat.add(mesh(SPH, MAT.white, 0, 0.72, -0.2, 0.78, 0.46, 0.95));
-    const neck = mesh(CYL, MAT.white, 0, 1.55, 0.45, 0.13, 2.15, 0.13);
-    neck.rotation.x = -0.65;
-    boat.add(neck);
-    boat.add(mesh(SPH, MAT.white, 0, 2.45, 1.15, 0.34, 0.28, 0.38));
-    boat.add(mesh(BOX, MAT.gold, 0, 2.38, 1.55, 0.12, 0.09, 0.62));
-    boat.add(mesh(SPH, MAT.stone, 0.12, 2.55, 1.2, 0.05));
-    boat.add(mesh(CYL, MAT.gold, -0.85, 0.4, 0.62, 0.14, 0.06, 0.14));
-    boat.add(mesh(CYL, MAT.gold, -0.85, 0.4, -0.62, 0.14, 0.06, 0.14));
+    boat.add(mesh(BOX, MAT.wood, 0, 0.28, -0.05, 2.35, 0.22, 0.95));
+    boat.add(mesh(BOX, MAT.swan, 0, 0.42, -0.05, 2.15, 0.1, 0.82));
+    boat.add(mesh(BOX, MAT.gold, 0, 0.5, 0.95, 0.9, 0.06, 0.1));
+    boat.add(mesh(BOX, MAT.wood, -0.15, 0.58, -0.2, 0.62, 0.08, 0.42));
+    boat.add(mesh(BOX, MAT.wood, -0.15, 0.78, -0.42, 0.62, 0.32, 0.08));
+    boat.add(mesh(SPH, MAT.swan, 0, 0.7, -0.15, 0.72, 0.4, 0.88));
+    const wingL = mesh(SPH, MAT.swan, -0.62, 0.66, -0.05, 0.62, 0.1, 0.78);
+    wingL.rotation.z = 0.55;
+    wingL.rotation.y = 0.35;
+    const wingR = mesh(SPH, MAT.swan, 0.62, 0.66, -0.05, 0.62, 0.1, 0.78);
+    wingR.rotation.z = -0.55;
+    wingR.rotation.y = -0.35;
+    boat.add(wingL, wingR);
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, 0.72, 0.25),
+      new THREE.Vector3(0, 1.15, 0.72),
+      new THREE.Vector3(0, 1.62, 0.38),
+      new THREE.Vector3(0, 2.05, 0.82),
+      new THREE.Vector3(0, 2.38, 1.18)
+    ]);
+    boat.add(new THREE.Mesh(new THREE.TubeGeometry(curve, 24, 0.1, 8, false), MAT.swan));
+    boat.add(mesh(SPH, MAT.swan, 0, 2.48, 1.22, 0.28, 0.24, 0.32));
+    const beak = mesh(CONE, MAT.gold, 0, 2.42, 1.52, 0.08, 0.38, 0.08);
+    beak.rotation.x = Math.PI / 2;
+    boat.add(beak);
+    boat.add(mesh(SPH, MAT.dark, 0.1, 2.56, 1.32, 0.045));
+    boat.add(mesh(SPH, MAT.dark, -0.1, 2.56, 1.32, 0.045));
+    boat.add(mesh(SPH, MAT.white, 0.1, 2.58, 1.34, 0.018));
+    boat.add(mesh(SPH, MAT.white, -0.1, 2.58, 1.34, 0.018));
+    boat.add(mesh(CYL, MAT.gold, -0.72, 0.22, 0.48, 0.16, 0.06, 0.16));
+    boat.add(mesh(CYL, MAT.gold, -0.72, 0.22, -0.48, 0.16, 0.06, 0.16));
+    const ripple = new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.045, 8, 28), MAT.ripple);
+    ripple.rotation.x = -Math.PI / 2;
+    ripple.position.set(0, 0.04, -0.05);
+    ripple.name = "care-swan-ripple";
+    boat.add(ripple);
     return boat;
   }
   function ponyMesh() {
@@ -525,14 +550,40 @@
       swans(g) {
         const f = new THREE.Group();
         f.name = "care-focus";
-        [[-2.2, 0.1, 0.05, "care-swan-boat"], [0.05, 0.28, -0.02, "care-swan-boat-2"], [2.25, 0.08, 0.04, "care-swan-boat-3"]].forEach(([x, z, ry, name]) => {
-          const boat = swanBoat(name);
-          boat.scale.set(0.86, 0.86, 0.86);
-          boat.position.set(x, -0.05, z);
-          boat.rotation.y = ry;
-          boat.userData.home = { x, y: -0.05, z, ry };
-          f.add(boat);
+        [0.15, 0.52, 0.89, 1.26, 1.63].forEach((z) => {
+          f.add(mesh(BOX, MAT.wood, 0, 0.32, z, 1.85, 0.08, 0.28));
         });
+        f.add(mesh(BOX, MAT.gold, 0, 0.4, 0.02, 1.95, 0.06, 0.08));
+        f.add(mesh(BOX, MAT.gold, 0, 0.4, 1.78, 1.95, 0.06, 0.08));
+        [[-0.82, 0.12], [0.82, 0.12], [-0.82, 1.68], [0.82, 1.68]].forEach(([x, z]) => {
+          f.add(mesh(CYL, MAT.wood, x, 0.62, z, 0.07, 1.05, 0.07));
+          f.add(mesh(CYL, MAT.gold, x, 1.12, z, 0.09, 0.06, 0.09));
+        });
+        [[0.12, 1.68], [0.9, 1.26]].forEach(([z0, z1]) => {
+          [-0.82, 0.82].forEach((x) => {
+            const rope = mesh(CYL, MAT.barnDark, x, 0.9, (z0 + z1) / 2, 0.025, Math.abs(z1 - z0), 0.025);
+            rope.rotation.x = Math.PI / 2;
+            f.add(rope);
+          });
+        });
+        const sideRope = mesh(CYL, MAT.barnDark, 0, 0.92, 0.12, 0.025, 1.64, 0.025);
+        sideRope.rotation.z = Math.PI / 2;
+        f.add(sideRope);
+        const sideRope2 = mesh(CYL, MAT.barnDark, 0, 0.92, 1.68, 0.025, 1.64, 0.025);
+        sideRope2.rotation.z = Math.PI / 2;
+        f.add(sideRope2);
+        f.add(mesh(CYL, MAT.gold, 0.82, 1.28, 1.68, 0.035, 0.34, 0.035));
+        f.add(mesh(SPH, MAT.glow, 0.82, 1.5, 1.68, 0.12));
+        const boat = swanBoat("care-swan-boat");
+        boat.scale.set(1.18, 1.18, 1.18);
+        boat.position.set(1.45, 0.02, -1.05);
+        boat.userData.home = { x: 1.45, y: 0.02, z: -1.05, ry: 0.15 };
+        boat.rotation.y = 0.15;
+        f.add(boat);
+        const tie = mesh(CYL, MAT.barnDark, 1.05, 0.55, -0.35, 0.02, 1.15, 0.02);
+        tie.rotation.z = Math.PI / 2;
+        tie.rotation.y = 0.7;
+        f.add(tie);
         g.add(f);
       },
       stage(g) {
@@ -608,7 +659,7 @@
       g.add(ring);
       if (id === "swans") {
         const sign = plaque(d.name, 1.45, 0.4);
-        sign.position.set(-0.15, 2.55, 1.15);
+        sign.position.set(0.05, 1.28, 2.05);
         g.add(sign);
       } else {
         const sign = plaque(d.name, 2.8, 0.78);
@@ -771,8 +822,9 @@
       }
     }
     const boat = PE.scene.getObjectByName("care-swan-boat");
-    const boat2 = PE.scene.getObjectByName("care-swan-boat-2");
-    const bob = Math.sin(performance.now() / 450) * 0.07;
+    const t = performance.now() / 1000;
+    const bob = Math.sin(t * 1.7) * 0.06;
+    const sway = Math.sin(t * 1.1) * 0.06;
     if (play.boat) {
       play.boat.t += dt;
       play.boat.a += dt * 0.35;
@@ -780,23 +832,23 @@
       const z = MOAT.z + Math.sin(play.boat.a) * MOAT.mid;
       PE.princess.position.set(x, 0.62, z);
       if (boat && boat.parent) {
-        const local = boat.parent.worldToLocal(new THREE.Vector3(x, 0.35 + bob, z));
+        const local = boat.parent.worldToLocal(new THREE.Vector3(x, 0.2 + bob, z));
         boat.position.copy(local);
         boat.rotation.y = -play.boat.a;
+        boat.rotation.z = sway * 0.4;
       }
     } else if (boat && boat.userData.home) {
       const h = boat.userData.home;
-      boat.position.set(h.x, h.y + bob, h.z);
-      boat.rotation.y = h.ry || 0;
-      boat.rotation.z = Math.sin(performance.now() / 700) * 0.04;
+      boat.position.set(h.x + Math.sin(t * 0.8) * 0.04, h.y + bob, h.z);
+      boat.rotation.y = (h.ry || 0) + sway;
+      boat.rotation.z = sway * 0.45;
     }
-    [boat2, PE.scene.getObjectByName("care-swan-boat-3")].forEach((extra, i) => {
-      if (extra && extra.userData.home && !play.boat) {
-        const h = extra.userData.home;
-        extra.position.set(h.x, h.y + Math.sin(performance.now() / 520 + i) * 0.06, h.z);
-        extra.rotation.y = h.ry || 0;
-      }
-    });
+    const ripple = boat && boat.getObjectByName("care-swan-ripple");
+    if (ripple) {
+      const pulse = 1 + Math.sin(t * 2.2) * 0.08;
+      ripple.scale.set(pulse, pulse, pulse);
+      if (ripple.material) ripple.material.opacity = 0.38 + Math.sin(t * 2.2) * 0.12;
+    }
   }
 
   function weekId(d) {
@@ -1288,9 +1340,9 @@
     const ox = Math.cos(a), oz = Math.sin(a);
     if (d.id === "swans") {
       const narrow = (window.innerWidth || 1280) < 700;
-      const side = narrow ? -0.55 : -1.55;
-      const out = narrow ? 7.4 : 1.7;
-      const lift = narrow ? 5.2 : 2.05;
+      const side = narrow ? -1.35 : -2.35;
+      const out = narrow ? 7.2 : 2.85;
+      const lift = narrow ? 3.8 : 2.15;
       PE.setCam(Math.sin(a) * side + Math.cos(a) * out, lift, -Math.cos(a) * side + Math.sin(a) * out);
     }
     else {
@@ -1311,7 +1363,7 @@
       const ox = Math.cos(a), oz = Math.sin(a);
       const tx = Math.sin(a), tz = -Math.cos(a);
       const c = centerOf(d);
-      orig(c.x + ox * 0.4 + tx * 0.1, 1.2, c.z + oz * 0.4 + tz * 0.1);
+      orig(c.x + ox * 0.2 + tx * 0.55, 1.05, c.z + oz * 0.2 + tz * 0.55);
     };
     cam._v45swan = 1;
   }
