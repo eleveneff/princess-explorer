@@ -292,8 +292,9 @@
     samples.forEach((s, i) => {
       const h = s.half != null ? s.half * (half / 1.6) : half;
       const a = i * 2, b = a + 1;
-      const yL = groundAt(s.x + s.nx * h, s.z + s.nz * h) + lift;
-      const yR = groundAt(s.x - s.nx * h, s.z - s.nz * h) + lift;
+      const yC = groundAt(s.x, s.z);
+      const yL = (s.level ? yC : groundAt(s.x + s.nx * h, s.z + s.nz * h)) + lift;
+      const yR = (s.level ? yC : groundAt(s.x - s.nx * h, s.z - s.nz * h)) + lift;
       pos[a * 3] = s.x + s.nx * h; pos[a * 3 + 1] = yL; pos[a * 3 + 2] = s.z + s.nz * h;
       pos[b * 3] = s.x - s.nx * h; pos[b * 3 + 1] = yR; pos[b * 3 + 2] = s.z - s.nz * h;
       if (cols) {
@@ -317,6 +318,7 @@
     geo.computeVertexNormals();
     const material = cols ? mat.clone() : mat;
     if (cols) material.vertexColors = true;
+    if (samples.some((s) => s.fade != null && s.fade < 0.999)) fadeAlpha(geo, material, samples);
     const m = new THREE.Mesh(geo, material);
     m.frustumCulled = false;
     return m;
@@ -333,8 +335,9 @@
       const scale = s.half != null ? s.half / 1.6 : 1;
       const a = i * 2, b = a + 1;
       const innerS = inner * scale, outerS = outer * scale;
-      const yA = groundAt(s.x + s.nx * sign * innerS, s.z + s.nz * sign * innerS) + lift - 0.12;
-      const yB = groundAt(s.x + s.nx * sign * outerS, s.z + s.nz * sign * outerS) + lift;
+      const yC = groundAt(s.x, s.z);
+      const yA = (s.level ? yC : groundAt(s.x + s.nx * sign * innerS, s.z + s.nz * sign * innerS)) + lift - 0.12;
+      const yB = (s.level ? yC + 0.15 : groundAt(s.x + s.nx * sign * outerS, s.z + s.nz * sign * outerS)) + lift;
       pos[a * 3] = s.x + s.nx * sign * innerS; pos[a * 3 + 1] = yA; pos[a * 3 + 2] = s.z + s.nz * sign * innerS;
       pos[b * 3] = s.x + s.nx * sign * outerS; pos[b * 3 + 1] = yB; pos[b * 3 + 2] = s.z + s.nz * sign * outerS;
       if (cols) {
@@ -355,9 +358,63 @@
     geo.computeVertexNormals();
     const material = cols ? mat.clone() : mat;
     if (cols) material.vertexColors = true;
+    if (samples.some((s) => s.fade != null && s.fade < 0.999)) fadeAlpha(geo, material, samples);
     const m = new THREE.Mesh(geo, material);
     m.frustumCulled = false;
     return m;
+  }
+  function distantSkirt() {
+    if (PE.scene.getObjectByName("v46-skirt")) return;
+    const inner = 92, outer = 460, seg = 96, rings = 22;
+    const pos = [], col = [], idx = [];
+    const grass = new THREE.Color("#9ed48a");
+    const far = new THREE.Color("#d4ebf7");
+    const stride = seg + 1;
+    for (let j = 0; j <= rings; j++) {
+      const u = j / rings;
+      const r = inner + (outer - inner) * Math.pow(u, 0.92);
+      for (let i = 0; i <= seg; i++) {
+        const a = (i / seg) * Math.PI * 2;
+        const x = Math.cos(a) * r, z = Math.sin(a) * r;
+        const hill = Math.sin(a * 4.0 + r * 0.012) * 2.2 + Math.cos(a * 2.2 - r * 0.008) * 1.4;
+        const y = groundAt(x, z) * (1 - u) + (4.5 + hill) * u;
+        pos.push(x, y, z);
+        const c = grass.clone().lerp(far, Math.pow(u, 0.75));
+        col.push(c.r, c.g, c.b);
+      }
+    }
+    for (let j = 0; j < rings; j++) {
+      for (let i = 0; i < seg; i++) {
+        const a = j * stride + i;
+        idx.push(a, a + 1, a + stride, a + 1, a + stride + 1, a + stride);
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+    const meshSkirt = new THREE.Mesh(geo, mat);
+    meshSkirt.name = "v46-skirt";
+    meshSkirt.receiveShadow = true;
+    meshSkirt.frustumCulled = false;
+    PE.scene.add(meshSkirt);
+  }
+  function fadeAlpha(geo, material, samples) {
+    const fades = new Float32Array(samples.length * 2);
+    samples.forEach((s, i) => { fades[i * 2] = fades[i * 2 + 1] = s.fade == null ? 1 : s.fade; });
+    geo.setAttribute("fade", new THREE.BufferAttribute(fades, 1));
+    material.transparent = true;
+    material.depthWrite = false;
+    material.onBeforeCompile = (shader) => {
+      shader.vertexShader = shader.vertexShader
+        .replace("#include <common>", "#include <common>\nattribute float fade;\nvarying float vFade;")
+        .replace("#include <begin_vertex>", "#include <begin_vertex>\nvFade = fade;");
+      shader.fragmentShader = shader.fragmentShader
+        .replace("#include <common>", "#include <common>\nvarying float vFade;")
+        .replace("#include <opaque_fragment>", "#include <opaque_fragment>\ngl_FragColor.a *= vFade;");
+    };
   }
   function stampFade(samples, wideAtStart) {
     const n = samples.length;
@@ -365,10 +422,12 @@
       const t = i / (n - 1);
       const away = wideAtStart ? t : 1 - t;
       const s = samples[i];
-      s.half = 1.55 * Math.pow(1 - away, 1.15) + 0.04;
-      s.fade = Math.pow(1 - away, 1.4);
+      s.half = 1.5 * Math.pow(1 - away, 1.45) + 0.02;
+      s.fade = Math.pow(1 - away, 1.7);
+      if (away > 0.9) s.fade = 0;
       if (away < 0.05) { s.half = 1.6; s.fade = 1; }
       s.scenery = true;
+      s.level = true;
     }
   }
   function sparkleTexture() {
@@ -483,6 +542,8 @@
   function buildStream() {
     if (PE.scene.getObjectByName("v46-stream")) return;
     mats();
+    if (PE.scene.fog) { PE.scene.fog.near = 78; PE.scene.fog.far = 205; }
+    distantSkirt();
     const root = new THREE.Group();
     root.name = "v46-stream";
     MAT.brook = new THREE.MeshLambertMaterial({ color: "#7fd3f0", side: THREE.DoubleSide });
@@ -542,52 +603,84 @@
     root.add(lilyMesh);
     const src = UP[0];
     const outAng = Math.atan2(src[1], src[0]);
+    const sideAng = outAng + Math.PI / 2;
+    const ray = (r, sway) => [Math.cos(outAng) * r + Math.cos(sideAng) * sway, Math.sin(outAng) * r + Math.sin(sideAng) * sway];
+    MAT.ledge = new THREE.MeshLambertMaterial({ color: "#5c6b78" });
+    MAT.ledgeDark = new THREE.MeshLambertMaterial({ color: "#3e4c59" });
+    MAT.peak = new THREE.MeshLambertMaterial({ color: "#8ea4b8" });
+    MAT.snow = new THREE.MeshLambertMaterial({ color: "#f7fbff" });
+    MAT.fallSheet = new THREE.MeshPhongMaterial({ map: fallTexture(), color: "#e7f7ff", emissive: "#9adfff", emissiveIntensity: 0.55, transparent: true, opacity: 0.78, depthWrite: false, side: THREE.DoubleSide, shininess: 90 });
+    MAT.mist = new THREE.MeshBasicMaterial({ color: "#f4fbff", transparent: true, opacity: 0.32, depthWrite: false });
+    const peakAt = ray(104, 0);
+    const peakY = groundAt(peakAt[0], peakAt[1]);
+    const peak = mesh(CONE, MAT.peak, peakAt[0], peakY + 14, peakAt[1], 14, 44, 13);
+    peak.name = "stream-mountain";
+    root.add(peak);
+    root.add(mesh(CONE, MAT.snow, peakAt[0], peakY + 32, peakAt[1], 5.5, 8, 5));
+    [[-18, 4, 30], [20, -2, 26], [-8, 12, 20]].forEach(([sw, along, h]) => {
+      const p = ray(104 + along, sw);
+      const py = groundAt(p[0], p[1]);
+      root.add(mesh(CONE, MAT.peak, p[0], py + h * 0.35, p[1], h * 0.42, h, h * 0.4));
+      root.add(mesh(CONE, MAT.snow, p[0], py + h * 0.78, p[1], h * 0.14, h * 0.2, h * 0.12));
+    });
     const falls = new THREE.Group();
     falls.name = "stream-falls";
-    for (let i = 0; i < 4; i++) {
-      const dist = 1.2 + i * 2.4;
-      const x = src[0] + Math.cos(outAng) * dist;
-      const z = src[1] + Math.sin(outAng) * dist;
-      const y = groundAt(x, z);
-      const rock = mesh(BOX, MAT.bridgeStone, x, y + 0.45 + i * 0.35, z, 3.4, 0.7, 1.6);
-      rock.rotation.y = -outAng;
-      root.add(rock);
-      const sheet = mesh(BOX, MAT.falls, x - Math.cos(outAng) * 0.85, y + 1.15 + i * 0.35, z - Math.sin(outAng) * 0.85, 2.2, 2.05, 0.22);
-      sheet.rotation.y = -outAng;
-      sheet.name = "stream-fall";
-      root.add(sheet);
-      falls.add(sheet);
-    }
+    const mist = new THREE.Group();
+    mist.name = "stream-mist";
     for (let i = 0; i < 5; i++) {
-      const dist = 10 + i * 4;
-      const x = src[0] + Math.cos(outAng) * dist;
-      const z = src[1] + Math.sin(outAng) * dist;
-      const y = groundAt(x, z);
-      const rock = mesh(BOX, MAT.bridgeStone, x, y + 0.22, z, 2.5 - i * 0.22, 0.38, 1.15);
-      rock.rotation.y = -outAng;
-      root.add(rock);
-      const sheet = mesh(BOX, MAT.falls, x - Math.cos(outAng) * 0.55, y + 0.7, z - Math.sin(outAng) * 0.55, 1.7 - i * 0.12, 1.05, 0.16);
-      sheet.rotation.y = -outAng;
+      const r = 76 + i * 4.2;
+      const p = ray(r, Math.sin(i * 1.3) * 1.6);
+      const y = groundAt(p[0], p[1]) + 1.4 + i * 3.1;
+      const ledge = mesh(BOX, i % 2 ? MAT.ledge : MAT.ledgeDark, p[0], y, p[1], 11 - i * 0.7, 1.05, 3.4);
+      ledge.rotation.y = -outAng + (i - 2) * 0.08;
+      root.add(ledge);
+      root.add(mesh(BOX, MAT.ledgeDark, p[0] + Math.cos(sideAng) * 2.4, y + 0.35, p[1] + Math.sin(sideAng) * 2.4, 2.2, 0.7, 1.6));
+      root.add(mesh(SPH, MAT.ledge, p[0] - Math.cos(sideAng) * 2.6, y + 0.45, p[1] - Math.sin(sideAng) * 2.6, 1.15));
+      const sx = p[0] - Math.cos(outAng) * 1.55;
+      const sz = p[1] - Math.sin(outAng) * 1.55;
+      const sheet = new THREE.Mesh(new THREE.PlaneGeometry(6.2 - i * 0.35, 3.6), MAT.fallSheet);
+      sheet.position.set(sx, y - 1.35, sz);
+      sheet.rotation.y = Math.atan2(-Math.cos(outAng), -Math.sin(outAng));
       sheet.name = "stream-fall";
-      root.add(sheet);
       falls.add(sheet);
+      const foam = new THREE.Mesh(new THREE.CircleGeometry(2.05 - i * 0.12, 18), MAT.foam);
+      foam.rotation.x = -Math.PI / 2;
+      foam.position.set(sx - Math.cos(outAng) * 0.35, y - 2.85, sz - Math.sin(outAng) * 0.35);
+      foam.name = "stream-foam";
+      root.add(foam);
+      for (let m = 0; m < 3; m++) {
+        const puff = mesh(SPH, MAT.mist.clone(), sx + (m - 1) * 0.7, y - 2.4, sz, 0.7);
+        puff.userData.base = { x: puff.position.x, y: puff.position.y, z: puff.position.z };
+        mist.add(puff);
+      }
     }
     root.add(falls);
-    const side = outAng + Math.PI / 2;
-    const ray = (r, sway) => [Math.cos(outAng) * r + Math.cos(side) * sway, Math.sin(outAng) * r + Math.sin(side) * sway];
-    const join = [src[0] + Math.cos(outAng) * 26, src[1] + Math.sin(outAng) * 26];
-    const ontoFalls = [src[0] + Math.cos(outAng) * 1.2, src[1] + Math.sin(outAng) * 1.2];
-    const UP_FAR = [ray(220, 0), ray(192, 16), ray(164, -14), ray(138, 12), ray(114, -10), ray(96, 6), ray(82, -3), join, ontoFalls];
+    root.add(mist);
+    stream.mist = mist;
+    const basin = ray(70, 2);
+    const basinY = groundAt(basin[0], basin[1]);
+    const basinPool = new THREE.Mesh(new THREE.CircleGeometry(3.4, 22), MAT.brook);
+    basinPool.rotation.x = -Math.PI / 2;
+    basinPool.position.set(basin[0], basinY + 0.2, basin[1]);
+    basinPool.name = "stream-pond";
+    root.add(basinPool);
+    const ontoFalls = [src[0] + Math.cos(outAng) * 1.4, src[1] + Math.sin(outAng) * 1.4];
+    const UP_FAR = [ray(146, 0), ray(128, 4), basin, ray(62, 14), ray(54, -12), ray(48, 6), ontoFalls];
     const pond = DOWN[DOWN.length - 1];
     const beforePond = DOWN[DOWN.length - 2];
     const ix = pond[0] - beforePond[0], iz = pond[1] - beforePond[1];
     const il = Math.hypot(ix, iz) || 1;
     const spill = [pond[0] + ix / il * 5, pond[1] + iz / il * 5];
-    const DOWN_FAR = [pond, spill, [14, 50], [4, 64], [20, 80], [2, 98], [22, 118], [6, 140], [26, 162], [4, 184], [18, 206], [2, 226]];
+    const DOWN_FAR = [pond, spill, [14, 50], [4, 64], [20, 80], [2, 98], [22, 118], [6, 140], [26, 164], [4, 188], [18, 214], [2, 242], [-8, 268]];
     const farUp = sampleCurve(curveOf(UP_FAR), 64);
     const farDown = sampleCurve(curveOf(DOWN_FAR), 72);
-    stampFade(farUp, false);
     stampFade(farDown, true);
+    farUp.forEach((s) => {
+      s.scenery = true;
+      s.level = true;
+      s.half = 1.6;
+      s.fade = Math.hypot(s.x, s.z) > 74 ? 0 : 1;
+    });
     stream.spans.push(farUp, farDown);
     farUp.concat(farDown).forEach((s) => stream.samples.push(s));
     [farUp, farDown].forEach((samples) => {
@@ -736,7 +829,7 @@
     let p = o;
     while (p) {
       const n = p.name || "";
-      if (n === "v46-stream" || n === "v34-moat" || n === "v45-lawn" || n === "v34-biscuit") return true;
+      if (n === "v46-stream" || n === "v46-skirt" || n === "v34-moat" || n === "v45-lawn" || n === "v34-biscuit") return true;
       if (p === PE.princess || p.isSkinnedMesh) return true;
       if (/castle|princess|sky|cloud|moat/i.test(n)) return true;
       p = p.parent;
@@ -1026,9 +1119,6 @@
       const px = sample.x + sample.nx * side * 3.2;
       const pz = sample.z + sample.nz * side * 3.2;
       if (inChannel(px, pz) || Math.hypot(px, pz + 1) < 13) return;
-      const post = mesh(CYL, MAT.bridgeWood, px, groundAt(px, pz) + 0.55, pz, 0.11, 1.05, 0.11);
-      post.name = "stream-fence-post";
-      root.add(post);
       used.push([px, pz]);
     });
     stream.cleared = { moved: moved.length, posts: used.length, left: stream.left.slice(0, 6) };
@@ -1093,7 +1183,21 @@
     persist();
   }
   const splash = { phase: "idle", t: 0, cool: 0 };
+  function fallsAnim(dt) {
+    if (MAT.fallSheet && MAT.fallSheet.map) MAT.fallSheet.map.offset.y = (MAT.fallSheet.map.offset.y - dt * 1.15) % 1;
+    const mist = stream.mist;
+    if (!mist) return;
+    stream.mistT = (stream.mistT || 0) + dt;
+    mist.children.forEach((puff, i) => {
+      const base = puff.userData.base;
+      if (!base) return;
+      const u = (stream.mistT * 0.28 + i * 0.13) % 1;
+      puff.position.set(base.x + Math.sin(stream.mistT * 1.4 + i) * 0.35, base.y + u * 2.4, base.z + Math.cos(stream.mistT + i) * 0.25);
+      puff.scale.setScalar(0.55 + u * 1.5);
+    });
+  }
   function splashTick(dt) {
+    fallsAnim(dt);
     const dog = PE.scene.getObjectByName("v34-biscuit");
     splash.cool = Math.max(0, splash.cool - dt);
     const p = PE.princess.position;
