@@ -161,20 +161,21 @@
   }
 
   const DEFS = [
-    { id: "terrace", name: "Royal Garden Terrace", price: 40, need: [], blurb: "Flower beds, a fountain, and a garden math challenge.", deg: 38, r: 13.4 },
-    { id: "stable", name: "Pony Stable", price: 50, need: [], blurb: "Brush the pony and ride around the grounds.", deg: -125, r: 13.6 },
-    { id: "studio", name: "Art Studio Tower", price: 45, need: [], blurb: "Paint shapes and hang a picture in the castle.", deg: 105, r: 13.8 },
-    { id: "nook", name: "Secret Library Nook", price: 35, need: [], blurb: "A sliding bookcase and a quiet reading spot.", deg: 155, r: 13.4 },
-    { id: "tea", name: "Tea Party Pavilion", price: 30, need: ["terrace"], blurb: "Set the table with fractions. Needs the Garden Terrace.", deg: 18, r: 16.8 },
-    { id: "maze", name: "Rose Maze", price: 35, need: ["terrace"], blurb: "A hedge maze with clues. Needs the Garden Terrace.", deg: 88, r: 15.4 },
-    { id: "training", name: "Fencing and Jiu Jitsu Training Hall", price: 50, need: [], blurb: "Practice spots and ribbons.", deg: -70, r: 14.2 },
-    { id: "court", name: "Royal Tennis Court", price: 40, need: [], blurb: "A court beside the castle, tied to the tennis game.", deg: -100, r: 16.6 },
-    { id: "observatory", name: "Star Observatory", price: 45, need: [], blurb: "A telescope dome and constellation patterns.", deg: 125, r: 16.8 },
-    { id: "swans", name: "Moat Swan Boats", price: 30, need: [], blurb: "Pedal a swan boat around the moat.", deg: 180, r: 11.3 },
-    { id: "stage", name: "Grand Ballroom Chandelier and Stage", price: 35, need: [], blurb: "A dance stage and a glowing chandelier inside the ballroom.", deg: -40, r: 13.8 },
-    { id: "corgi", name: "Corgi Castle for Sir Biscuit", price: 25, need: [], blurb: "A doghouse and a treat game. No coins, just a happy corgi.", deg: -155, r: 13.2 }
+    { id: "terrace", name: "Royal Garden Terrace", price: 40, need: [], blurb: "Flower beds, a fountain, and a garden math challenge.", x: 3.4, z: 8.4 },
+    { id: "stable", name: "Pony Stable", price: 50, need: [], blurb: "Brush the pony and ride around the grounds.", x: -13.1, z: 8.4 },
+    { id: "studio", name: "Art Studio Tower", price: 45, need: [], blurb: "Paint shapes and hang a picture in the castle.", x: 13.3, z: 8.4 },
+    { id: "nook", name: "Secret Library Nook", price: 35, need: [], blurb: "A sliding bookcase and a quiet reading spot.", x: 6.7, z: 8.4 },
+    { id: "tea", name: "Tea Party Pavilion", price: 30, need: ["terrace"], blurb: "Set the table with fractions. Needs the Garden Terrace.", x: 10, z: 8.4 },
+    { id: "maze", name: "Rose Maze", price: 35, need: ["terrace"], blurb: "A hedge maze with clues. Needs the Garden Terrace.", x: -16.4, z: 8.4 },
+    { id: "training", name: "Fencing and Jiu Jitsu Training Hall", price: 50, need: [], blurb: "Practice spots and ribbons.", x: -6.5, z: 8.4 },
+    { id: "court", name: "Royal Tennis Court", price: 40, need: [], blurb: "A court beside the castle, tied to the tennis game.", x: -9.8, z: 8.4 },
+    { id: "observatory", name: "Star Observatory", price: 45, need: [], blurb: "A telescope dome and constellation patterns.", x: 16.4, z: 8.4 },
+    { id: "swans", name: "Moat Swan Boats", price: 30, need: [], blurb: "Pedal a swan boat around the moat.", x: 0, z: 9.8 },
+    { id: "stage", name: "Grand Ballroom Chandelier and Stage", price: 35, need: [], blurb: "A dance stage and a glowing chandelier inside the ballroom.", x: 18, z: 2 },
+    { id: "corgi", name: "Corgi Castle for Sir Biscuit", price: 25, need: [], blurb: "A doghouse and a treat game. No coins, just a happy corgi.", x: -3.2, z: 8.4 }
   ];
   function spotOf(d) {
+    if (Number.isFinite(d.x) && Number.isFinite(d.z)) return { x: d.x, z: d.z };
     const a = d.deg * Math.PI / 180;
     return { x: Math.cos(a) * d.r, z: Math.sin(a) * d.r };
   }
@@ -281,17 +282,49 @@
   }
 
   function rose(g, x, y, z) {
-    g.add(mesh(SPH, MAT.petal, x, y, z, 0.09));
-    g.add(mesh(SPH, MAT.glow, x, y + 0.06, z, 0.035));
+    g.add(mesh(SPH, MAT.petal, x, y, z, 0.13));
+    g.add(mesh(SPH, MAT.glow, x, y + 0.08, z, 0.045));
+  }
+  function lampPost(g, x, y, z) {
+    g.add(mesh(CYL, MAT.gold, x, y, z, 0.05, 0.7, 0.05));
+    g.add(mesh(SPH, MAT.glow, x, y + 0.42, z, 0.12));
+  }
+  function standRing(g) {
+    const t = new THREE.Mesh(new THREE.TorusGeometry(0.9, 0.07, 8, 28), MAT.gold);
+    t.rotation.x = -Math.PI / 2;
+    t.position.y = 0.06;
+    g.add(t);
   }
   function hedge(g, x, z, w, d, blocks) {
-    g.add(mesh(BOX, MAT.hedge, x, 0.65, z, w, 1.3, d));
-    const n = Math.max(2, Math.round(Math.max(w, d) / 0.7));
+    const h = 2.45;
+    g.add(mesh(BOX, MAT.hedge, x, h * 0.46, z, w, h * 0.92, d));
+    const alongX = w >= d;
+    const len = Math.max(w, d);
+    const n = Math.max(3, Math.round(len / 0.5));
     for (let i = 0; i < n; i++) {
-      const t = n === 1 ? 0.5 : i / (n - 1);
-      rose(g, x + (w > d ? (t - 0.5) * w : 0), 1.35, z + (d >= w ? (t - 0.5) * d : 0));
+      const t = (i / (n - 1) - 0.5) * len * 0.92;
+      const rx = x + (alongX ? t : 0);
+      const rz = z + (alongX ? 0 : t);
+      g.add(mesh(SPH, MAT.hedge, rx, h - 0.15, rz, alongX ? 0.42 : Math.max(0.4, w * 0.55), 0.48, alongX ? Math.max(0.4, d * 0.55) : 0.42));
+      if (i % 2 === 0) rose(g, rx, h + 0.22, rz);
     }
-    if (blocks) blocks.push({ x, z, r: Math.max(w, d) * 0.42 });
+    if (blocks) blocks.push({ x, z, r: Math.min(w, d) * 0.42 });
+  }
+  function swanBoat(name) {
+    const boat = new THREE.Group();
+    boat.name = name;
+    boat.add(mesh(BOX, MAT.wood, 0, 0.32, 0, 2.6, 0.28, 1.05));
+    boat.add(mesh(BOX, MAT.white, 0, 0.48, 0, 2.35, 0.12, 0.88));
+    boat.add(mesh(BOX, MAT.gold, -0.2, 0.66, 0, 0.7, 0.1, 0.55));
+    boat.add(mesh(BOX, MAT.wood, -0.2, 0.95, -0.32, 0.62, 0.45, 0.08));
+    boat.add(mesh(SPH, MAT.white, 0, 0.72, -0.15, 0.85, 0.42, 0.7));
+    [[0.55, 1.15, 0.2], [0.85, 1.7, 0.18], [1.05, 2.25, 0.17], [1.0, 2.75, 0.16]].forEach(([z, y, s]) => boat.add(mesh(SPH, MAT.white, 0, y, z, s)));
+    boat.add(mesh(SPH, MAT.white, 0, 3.05, 0.85, 0.32, 0.26, 0.36));
+    boat.add(mesh(BOX, MAT.gold, 0, 2.98, 1.22, 0.12, 0.08, 0.42));
+    boat.add(mesh(SPH, MAT.stone, 0.12, 3.14, 0.95, 0.05));
+    boat.add(mesh(CYL, MAT.gold, -0.85, 0.4, 0.62, 0.14, 0.06, 0.14));
+    boat.add(mesh(CYL, MAT.gold, -0.85, 0.4, -0.62, 0.14, 0.06, 0.14));
+    return boat;
   }
   function ponyMesh() {
     const pony = new THREE.Group();
@@ -307,166 +340,242 @@
   function builders() {
     return {
       terrace(g) {
-        g.add(mesh(CYL, MAT.stone, 0, 0.18, 0.2, 0.85, 0.28, 0.85));
-        g.add(mesh(CYL, MAT.water, 0, 0.36, 0.2, 0.62, 0.1, 0.62));
-        g.add(mesh(CYL, MAT.gold, 0, 0.7, 0.2, 0.1, 0.55, 0.1));
-        g.add(mesh(SPH, MAT.glow, 0, 1.05, 0.2, 0.1));
-        [[-1.5, 1.15], [1.5, 1.15], [-1.5, -0.9], [1.5, -0.9]].forEach(([x, z]) => {
-          g.add(mesh(BOX, MAT.wood, x, 0.16, z, 1.05, 0.18, 0.7));
-          g.add(mesh(BOX, MAT.leaf, x, 0.28, z, 0.9, 0.08, 0.55));
-          [-0.28, 0, 0.28].forEach((dx) => rose(g, x + dx, 0.42, z));
+        const f = new THREE.Group();
+        f.name = "care-focus";
+        f.add(mesh(CYL, MAT.stone, 0, 0.35, -4.2, 1.15, 0.4, 1.15));
+        f.add(mesh(CYL, MAT.gold, 0, 0.58, -4.2, 1.28, 0.08, 1.28));
+        f.add(mesh(CYL, MAT.water, 0, 0.62, -4.2, 0.9, 0.12, 0.9));
+        f.add(mesh(CYL, MAT.gold, 0, 1.15, -4.2, 0.12, 0.9, 0.12));
+        f.add(mesh(SPH, MAT.glow, 0, 1.7, -4.2, 0.16));
+        [[-2.2, -3.2], [2.2, -3.2], [-2.2, -5.2], [2.2, -5.2]].forEach(([x, z]) => {
+          f.add(mesh(BOX, MAT.wood, x, 0.22, z, 1.5, 0.22, 0.9));
+          f.add(mesh(BOX, MAT.gold, x, 0.34, z, 1.58, 0.06, 0.98));
+          f.add(mesh(BOX, MAT.leaf, x, 0.42, z, 1.3, 0.08, 0.7));
+          [-0.4, 0, 0.4].forEach((dx) => rose(f, x + dx, 0.62, z));
         });
-        g.add(mesh(BOX, MAT.stone, 0, 0.06, 1.5, 0.7, 0.06, 1.6));
+        f.add(mesh(BOX, MAT.stone, 0, 0.06, -2.2, 1.1, 0.08, 2.2));
+        lampPost(f, -3.2, 0.9, -4.2);
+        lampPost(f, 3.2, 0.9, -4.2);
+        g.add(f);
       },
       stable(g) {
-        g.add(mesh(BOX, MAT.wood, -0.2, 1.15, -0.3, 2.6, 2.1, 2.2));
-        g.add(mesh(BOX, MAT.roof, -0.2, 2.3, -0.3, 2.9, 0.18, 2.5));
-        [-0.9, 0.5].forEach((x) => g.add(mesh(BOX, MAT.wood, x, 1.05, -0.3, 0.08, 1.7, 2)));
-        g.add(mesh(BOX, MAT.gold, -1.3, 0.28, 0.9, 0.45, 0.28, 0.35));
-        g.add(mesh(BOX, MAT.gold, 0.9, 0.22, 0.9, 0.4, 0.2, 0.3));
-        [[-1.6, 1.3], [1.6, 1.3], [-1.6, 2.5], [1.6, 2.5]].forEach(([x, z]) => g.add(mesh(CYL, MAT.wood, x, 0.45, z, 0.06, 0.9, 0.06)));
-        g.add(mesh(BOX, MAT.wood, 0, 0.7, 1.3, 3.2, 0.08, 0.08));
-        g.add(mesh(BOX, MAT.wood, 0, 0.35, 1.3, 3.2, 0.08, 0.08));
+        const f = new THREE.Group();
+        f.name = "care-focus";
+        f.add(mesh(BOX, MAT.wood, 0, 1.35, -4.4, 4.4, 2.5, 2.8));
+        f.add(mesh(BOX, MAT.roof, 0, 2.75, -4.4, 4.8, 0.28, 3.2));
+        f.add(mesh(BOX, MAT.gold, 0, 2.5, -4.4, 4.6, 0.1, 3.05));
+        [-1.3, 0.2].forEach((x) => f.add(mesh(BOX, MAT.wood, x, 1.2, -4.4, 0.1, 2.1, 2.6)));
+        f.add(mesh(BOX, MAT.gold, -1.8, 0.35, -2.7, 0.7, 0.35, 0.5));
+        f.add(mesh(BOX, MAT.gold, 0.6, 0.28, -2.7, 0.6, 0.25, 0.45));
+        [[-2.4, -2.2], [2.4, -2.2], [-2.4, -5.6], [2.4, -5.6]].forEach(([x, z]) => f.add(mesh(CYL, MAT.wood, x, 0.55, z, 0.08, 1.1, 0.08)));
+        f.add(mesh(BOX, MAT.wood, 0, 0.85, -2.2, 4.8, 0.1, 0.1));
+        f.add(mesh(BOX, MAT.wood, 0, 0.4, -2.2, 4.8, 0.1, 0.1));
+        lampPost(f, 2.5, 1.3, -2.9);
         const pony = ponyMesh();
-        pony.position.set(0.15, 0, 1.7);
-        g.add(pony);
+        pony.position.set(1.3, 0, -3.3);
+        pony.userData.home = { x: 1.3, y: 0, z: -3.3 };
+        f.add(pony);
+        g.add(f);
       },
       studio(g) {
-        g.add(mesh(BOX, MAT.stone, 0, 1.15, 0, 2.4, 2.2, 2.2));
-        g.add(mesh(BOX, MAT.roof, 0, 2.35, 0, 2.7, 0.16, 2.5));
-        g.add(mesh(BOX, MAT.glow, 0, 1.35, 1.12, 0.9, 0.7, 0.06));
-        g.add(mesh(BOX, MAT.wood, 0, 1.35, 1.08, 1.05, 0.85, 0.05));
+        const f = new THREE.Group();
+        f.name = "care-focus";
+        f.add(mesh(BOX, MAT.stone, 0, 1.45, -4.2, 3.4, 2.7, 2.6));
+        f.add(mesh(BOX, MAT.roof, 0, 2.95, -4.2, 3.8, 0.22, 3));
+        f.add(mesh(BOX, MAT.gold, 0, 2.7, -4.2, 3.6, 0.08, 2.8));
+        f.add(mesh(BOX, MAT.wood, 0, 1.55, -2.85, 1.5, 1.15, 0.08));
+        f.add(mesh(BOX, MAT.glow, 0, 1.55, -2.78, 1.25, 0.95, 0.05));
         const easel = new THREE.Group();
-        easel.position.set(0.85, 0, 0.7);
-        easel.add(mesh(BOX, MAT.wood, 0, 0.7, 0, 0.06, 1.2, 0.5));
-        easel.add(mesh(BOX, MAT.white, 0, 0.95, 0.04, 0.42, 0.5, 0.04));
-        g.add(easel);
-        [[-0.7, 0.2], [-0.45, 0.2], [-0.2, 0.2]].forEach(([x, z], i) => g.add(mesh(CYL, [MAT.petal, MAT.water, MAT.gold][i], x, 0.22, z, 0.08, 0.16, 0.08)));
+        easel.position.set(1.35, 0, -3.3);
+        easel.add(mesh(BOX, MAT.wood, 0, 0.9, 0, 0.08, 1.5, 0.7));
+        easel.add(mesh(BOX, MAT.white, 0, 1.15, 0.06, 0.55, 0.7, 0.05));
+        easel.add(mesh(SPH, MAT.petal, 0, 1.2, 0.1, 0.12));
+        f.add(easel);
+        [[-1.2, -3.1], [-0.85, -3.1], [-0.5, -3.1]].forEach(([x, z], i) => f.add(mesh(CYL, [MAT.petal, MAT.water, MAT.gold][i], x, 0.28, z, 0.1, 0.22, 0.1)));
+        lampPost(f, -1.8, 1.2, -2.8);
+        g.add(f);
       },
       nook(g) {
-        g.add(mesh(BOX, MAT.stone, 0, 1.05, -0.2, 2.4, 2, 2));
-        g.add(mesh(BOX, MAT.roof, 0, 2.15, -0.2, 2.7, 0.16, 2.3));
+        const f = new THREE.Group();
+        f.name = "care-focus";
+        f.add(mesh(BOX, MAT.stone, 0, 1.35, -5.2, 3.6, 2.5, 0.28));
+        f.add(mesh(BOX, MAT.stone, -1.7, 1.25, -4.1, 0.28, 2.3, 2));
+        f.add(mesh(BOX, MAT.stone, 1.7, 1.25, -4.1, 0.28, 2.3, 2));
+        f.add(mesh(BOX, MAT.roof, 0, 2.7, -4.3, 4, 0.22, 2.4));
+        f.add(mesh(BOX, MAT.gold, 0, 2.5, -4.3, 3.85, 0.08, 2.25));
+        f.add(mesh(CYL, MAT.stone, -1.15, 1.15, -3.15, 0.16, 2.2, 0.16));
+        f.add(mesh(CYL, MAT.stone, 1.15, 1.15, -3.15, 0.16, 2.2, 0.16));
+        f.add(mesh(BOX, MAT.stone, 0, 2.25, -3.15, 2.5, 0.28, 0.28));
         const book = new THREE.Group();
         book.name = "care-nook-book";
-        book.position.set(0.15, 0, 0.85);
-        book.add(mesh(BOX, MAT.wood, 0, 0.9, 0, 1.15, 1.5, 0.16));
-        [-0.35, -0.12, 0.12, 0.35].forEach((x, i) => book.add(mesh(BOX, [MAT.petal, MAT.roof, MAT.gold, MAT.water][i], x, 0.95, 0.09, 0.16, 0.7, 0.04)));
-        g.add(book);
-        g.add(mesh(BOX, MAT.wood, -0.7, 0.32, 0.4, 0.7, 0.28, 0.4));
-        g.add(mesh(SPH, MAT.glow, -0.7, 1.5, 0.2, 0.08));
+        book.position.set(-1.15, 0, -4.3);
+        book.userData.shut = -1.15;
+        book.add(mesh(BOX, MAT.wood, 0, 1.05, 0, 0.28, 1.7, 1.15));
+        [-0.35, 0, 0.35].forEach((z, i) => book.add(mesh(BOX, [MAT.petal, MAT.roof, MAT.gold][i], 0.16, 1.05, z, 0.05, 1.15, 0.22)));
+        f.add(book);
+        f.add(mesh(BOX, MAT.wood, 0.7, 0.38, -4.5, 1.1, 0.32, 0.45));
+        f.add(mesh(BOX, MAT.petal, 0.7, 0.56, -4.5, 1, 0.08, 0.38));
+        lampPost(f, 1.35, 1.15, -3.4);
+        f.add(mesh(BOX, MAT.stone, 0, 0.05, -2.4, 1.2, 0.06, 1.6));
+        g.add(f);
       },
       tea(g) {
-        [[-1.3, -1.1], [1.3, -1.1], [-1.3, 1.1], [1.3, 1.1]].forEach(([x, z]) => g.add(mesh(CYL, MAT.wood, x, 1.15, z, 0.07, 2.2, 0.07)));
-        g.add(mesh(BOX, MAT.white, 0, 2.3, 0, 3, 0.1, 2.6));
-        g.add(mesh(BOX, MAT.gold, 0, 2.38, 0, 3.15, 0.05, 0.12));
-        g.add(mesh(CYL, MAT.wood, 0, 0.45, 0.15, 0.55, 0.1, 0.55));
-        g.add(mesh(CYL, MAT.white, 0, 0.55, 0.15, 0.62, 0.06, 0.62));
-        g.add(mesh(SPH, MAT.petal, 0, 0.7, 0.15, 0.12));
-        [[-0.35, 0.55], [0.35, 0.55], [-0.35, -0.25], [0.35, -0.25]].forEach(([x, z]) => {
-          g.add(mesh(BOX, MAT.wood, x, 0.32, z, 0.28, 0.32, 0.28));
-          g.add(mesh(CYL, MAT.white, x, 0.62, z, 0.07, 0.06, 0.07));
+        const f = new THREE.Group();
+        f.name = "care-focus";
+        [[-1.8, -3.2], [1.8, -3.2], [-1.8, -5.6], [1.8, -5.6]].forEach(([x, z]) => f.add(mesh(CYL, MAT.wood, x, 1.35, z, 0.09, 2.6, 0.09)));
+        f.add(mesh(BOX, MAT.white, 0, 2.7, -4.4, 4.2, 0.12, 2.9));
+        f.add(mesh(BOX, MAT.gold, 0, 2.8, -4.4, 4.35, 0.06, 0.12));
+        f.add(mesh(BOX, MAT.gold, 0, 2.8, -3.05, 4.35, 0.06, 0.1));
+        f.add(mesh(CYL, MAT.wood, 0, 0.55, -4.4, 0.85, 0.12, 0.85));
+        f.add(mesh(CYL, MAT.white, 0, 0.68, -4.4, 0.95, 0.08, 0.95));
+        f.add(mesh(SPH, MAT.petal, 0, 0.95, -4.4, 0.18));
+        [[-0.45, -3.9], [0.45, -3.9], [-0.45, -4.9], [0.45, -4.9]].forEach(([x, z]) => {
+          f.add(mesh(BOX, MAT.wood, x, 0.38, z, 0.36, 0.4, 0.36));
+          f.add(mesh(CYL, MAT.white, x, 0.72, z, 0.09, 0.08, 0.09));
         });
+        lampPost(f, 0, 2.2, -4.4);
+        g.add(f);
       },
       maze(g) {
+        const f = new THREE.Group();
+        f.name = "care-focus";
         const blocks = [];
-        hedge(g, -1.7, 1.7, 0.45, 1.5, blocks);
-        hedge(g, 1.7, 1.7, 0.45, 1.5, blocks);
-        hedge(g, 0, -1.7, 3.6, 0.45, blocks);
-        hedge(g, -1.7, 0, 0.45, 2.2, blocks);
-        hedge(g, 1.7, 0, 0.45, 2.2, blocks);
-        hedge(g, -0.7, 0.15, 1.1, 0.4, blocks);
-        rose(g, 0, 0.35, -0.2);
-        const clue = plaque("Rose", 0.7, 0.22);
-        clue.position.set(0, 1.15, 2.15);
-        g.add(clue);
+        hedge(f, -2.3, -2.6, 2.4, 0.7, blocks);
+        hedge(f, 2.3, -2.6, 2.4, 0.7, blocks);
+        hedge(f, -3.3, -4.6, 0.7, 4.2, blocks);
+        hedge(f, 3.3, -4.6, 0.7, 4.2, blocks);
+        hedge(f, 0, -6.6, 6.6, 0.7, blocks);
+        hedge(f, -1.3, -4.5, 0.65, 2.2, blocks);
+        hedge(f, 1.5, -5.4, 2.4, 0.65, blocks);
+        rose(f, 0, 0.4, -5.2);
+        const clue = plaque("Rose path", 0.9, 0.26);
+        clue.position.set(0, 1.7, -2.15);
+        f.add(clue);
         g.userData.blocks = blocks;
+        g.add(f);
       },
       training(g) {
-        g.add(mesh(BOX, MAT.stone, 0, 1.2, -0.3, 4.2, 2.3, 2.4));
-        g.add(mesh(BOX, MAT.roof, 0, 2.45, -0.3, 4.5, 0.16, 2.7));
-        g.add(mesh(BOX, MAT.water, -0.8, 0.08, 0.9, 1.3, 0.06, 1.1));
-        g.add(mesh(BOX, MAT.petal, 0.8, 0.08, 0.9, 1.3, 0.06, 1.1));
-        g.add(mesh(CYL, MAT.white, 0, 1.25, -1.45, 0.45, 0.06, 0.45));
-        g.add(mesh(CYL, MAT.petal, 0, 1.25, -1.42, 0.28, 0.05, 0.28));
-        g.add(mesh(CYL, MAT.gold, 0, 1.25, -1.4, 0.1, 0.04, 0.1));
-        g.add(mesh(BOX, MAT.glow, -1.6, 1.5, 0.95, 0.08, 0.7, 0.08));
-        g.add(mesh(BOX, MAT.water, 1.6, 1.5, 0.95, 0.08, 0.7, 0.08));
+        const f = new THREE.Group();
+        f.name = "care-focus";
+        f.add(mesh(BOX, MAT.stone, 0, 1.45, -4.6, 5.2, 2.7, 3));
+        f.add(mesh(BOX, MAT.roof, 0, 2.95, -4.6, 5.6, 0.2, 3.4));
+        f.add(mesh(BOX, MAT.gold, 0, 2.7, -4.6, 5.4, 0.08, 3.2));
+        f.add(mesh(BOX, MAT.water, -1.1, 0.1, -3.6, 1.6, 0.08, 1.4));
+        f.add(mesh(BOX, MAT.petal, 1.1, 0.1, -3.6, 1.6, 0.08, 1.4));
+        f.add(mesh(CYL, MAT.white, 0, 1.55, -6.05, 0.7, 0.08, 0.7));
+        f.add(mesh(CYL, MAT.petal, 0, 1.55, -5.98, 0.42, 0.06, 0.42));
+        f.add(mesh(CYL, MAT.gold, 0, 1.55, -5.94, 0.16, 0.05, 0.16));
+        f.add(mesh(BOX, MAT.glow, -2.2, 1.7, -3.2, 0.1, 0.9, 0.08));
+        f.add(mesh(BOX, MAT.water, 2.2, 1.7, -3.2, 0.1, 0.9, 0.08));
+        lampPost(f, 0, 1.6, -3.05);
+        g.add(f);
       },
       court(g) {
-        g.add(mesh(BOX, MAT.court, 0, 0.06, 0, 4.6, 0.08, 2.6));
-        g.add(mesh(BOX, MAT.line, 0, 0.12, 0, 4.4, 0.02, 0.04));
-        g.add(mesh(BOX, MAT.line, 0, 0.12, 0, 0.04, 0.02, 2.4));
-        g.add(mesh(BOX, MAT.line, -1.1, 0.12, 0, 0.04, 0.02, 1.2));
-        g.add(mesh(BOX, MAT.line, 1.1, 0.12, 0, 0.04, 0.02, 1.2));
-        [-2.3, 2.3].forEach((x) => g.add(mesh(CYL, MAT.wood, x, 0.45, 0, 0.05, 0.8, 0.05)));
-        g.add(mesh(BOX, MAT.white, 0, 0.55, 0, 4.5, 0.45, 0.03));
-        [[-2.5, -1.5], [2.5, -1.5], [-2.5, 1.5], [2.5, 1.5]].forEach(([x, z]) => g.add(mesh(CYL, MAT.wood, x, 0.55, z, 0.05, 1.1, 0.05)));
-        g.add(mesh(BOX, MAT.wood, 0, 0.9, -1.5, 5, 0.05, 0.05));
-        g.add(mesh(BOX, MAT.wood, 0, 0.9, 1.5, 5, 0.05, 0.05));
+        const f = new THREE.Group();
+        f.name = "care-focus";
+        f.add(mesh(BOX, MAT.court, 0, 0.08, -4.6, 7.2, 0.1, 4.2));
+        f.add(mesh(BOX, MAT.line, 0, 0.16, -4.6, 6.8, 0.03, 0.06));
+        f.add(mesh(BOX, MAT.line, 0, 0.16, -4.6, 0.06, 0.03, 3.8));
+        f.add(mesh(BOX, MAT.line, -1.6, 0.16, -4.6, 0.06, 0.03, 1.8));
+        f.add(mesh(BOX, MAT.line, 1.6, 0.16, -4.6, 0.06, 0.03, 1.8));
+        [-3.5, 3.5].forEach((x) => f.add(mesh(CYL, MAT.wood, x, 0.7, -4.6, 0.07, 1.3, 0.07)));
+        f.add(mesh(BOX, MAT.white, 0, 0.85, -4.6, 6.8, 0.7, 0.04));
+        [[-3.8, -6.6], [3.8, -6.6], [-3.8, -2.6], [3.8, -2.6]].forEach(([x, z]) => f.add(mesh(CYL, MAT.wood, x, 0.7, z, 0.07, 1.4, 0.07)));
+        f.add(mesh(BOX, MAT.wood, 0, 1.15, -6.6, 7.6, 0.07, 0.07));
+        f.add(mesh(BOX, MAT.wood, 0, 1.15, -2.6, 7.6, 0.07, 0.07));
+        f.add(mesh(BOX, MAT.wood, -3.8, 1.15, -4.6, 0.07, 0.07, 4));
+        f.add(mesh(BOX, MAT.wood, 3.8, 1.15, -4.6, 0.07, 0.07, 4));
+        lampPost(f, -4.2, 1.1, -2.6);
+        g.add(f);
       },
       observatory(g) {
-        g.add(mesh(CYL, MAT.stone, 0, 1.05, 0, 1.15, 2, 1.15));
-        g.add(mesh(CYL, MAT.gold, 0, 2.08, 0, 1.25, 0.08, 1.25));
-        const dome = mesh(SPH, MAT.roof, 0, 2.35, 0, 1.15, 0.7, 1.15);
-        g.add(dome);
-        g.add(mesh(BOX, MAT.stone, 0, 2.7, 0.15, 0.18, 0.55, 1.3));
-        const scope = mesh(CYL, MAT.gold, 0, 2.55, 0.85, 0.1, 0.9, 0.1);
-        scope.rotation.x = Math.PI / 2.4;
-        g.add(scope);
-        g.add(mesh(SPH, MAT.glow, 0, 2.55, 1.2, 0.08));
+        const f = new THREE.Group();
+        f.name = "care-focus";
+        f.add(mesh(CYL, MAT.stone, 0, 1.45, -4.4, 1.55, 2.7, 1.55));
+        f.add(mesh(CYL, MAT.gold, 0, 2.85, -4.4, 1.7, 0.1, 1.7));
+        f.add(mesh(SPH, MAT.roof, 0, 3.35, -4.4, 1.6, 0.95, 1.6));
+        f.add(mesh(BOX, MAT.stone, 0, 3.7, -3.7, 0.22, 0.7, 1.5));
+        const scope = mesh(CYL, MAT.gold, 0, 3.45, -3.2, 0.14, 1.3, 0.14);
+        scope.rotation.x = Math.PI / 2.3;
+        f.add(scope);
+        f.add(mesh(SPH, MAT.glow, 0, 3.4, -2.55, 0.12));
+        f.add(mesh(BOX, MAT.wood, 0, 1.2, -2.85, 0.7, 1.3, 0.08));
+        lampPost(f, 1.8, 1.2, -3.2);
+        g.add(f);
       },
       swans(g) {
-        g.add(mesh(BOX, MAT.wood, 0, 0.18, 0.4, 1.2, 0.16, 0.8));
-        const boat = new THREE.Group();
-        boat.name = "care-swan-boat";
-        boat.add(mesh(BOX, MAT.wood, 0, 0.18, 0, 1.15, 0.18, 0.48));
-        boat.add(mesh(SPH, MAT.white, 0.15, 0.42, 0, 0.62, 0.32, 0.36));
-        boat.add(mesh(SPH, MAT.white, 0.62, 0.7, 0, 0.18, 0.28, 0.16));
-        boat.add(mesh(SPH, MAT.white, 0.7, 1.02, 0, 0.16));
-        boat.add(mesh(BOX, MAT.gold, 0.78, 0.88, 0, 0.16, 0.05, 0.06));
-        boat.position.set(2.05, 0.32, -0.15);
-        g.add(boat);
+        const f = new THREE.Group();
+        f.name = "care-focus";
+        f.add(mesh(BOX, MAT.wood, 0, 0.16, -1.6, 1.4, 0.14, 2.2));
+        f.add(mesh(CYL, MAT.wood, -0.7, 0.55, -1.2, 0.06, 0.9, 0.06));
+        f.add(mesh(CYL, MAT.wood, 0.7, 0.55, -1.2, 0.06, 0.9, 0.06));
+        const boat = swanBoat("care-swan-boat");
+        boat.position.set(0.35, 0.15, -0.45);
+        boat.rotation.y = 0;
+        boat.userData.home = { x: 0.35, y: 0.15, z: -0.45, ry: 0 };
+        f.add(boat);
+        const boat2 = swanBoat("care-swan-boat-2");
+        boat2.position.set(-1.35, 0.15, -1.35);
+        boat2.rotation.y = 0.25;
+        boat2.userData.home = { x: -1.35, y: 0.15, z: -1.35, ry: 0.25 };
+        f.add(boat2);
+        g.add(f);
       },
       stage(g) {
         const cg = PE.v3 && PE.v3.castle && PE.v3.castle.castleIn && PE.v3.castle.castleIn.group;
         if (cg && !cg.getObjectByName("care-stage-in")) {
           const inn = new THREE.Group();
           inn.name = "care-stage-in";
-          inn.add(mesh(BOX, MAT.wood, -17, 0.18, 12.7, 3.2, 0.22, 1.5));
-          inn.add(mesh(BOX, MAT.wood, -17, 0.12, 11.7, 1.2, 0.14, 0.5));
-          inn.add(mesh(BOX, MAT.gold, -17, 0.32, 13.35, 3.4, 0.08, 0.1));
-          inn.add(mesh(BOX, MAT.petal, -18.7, 1.3, 13.2, 0.12, 1.5, 0.08));
-          inn.add(mesh(BOX, MAT.petal, -15.3, 1.3, 13.2, 0.12, 1.5, 0.08));
+          const show = new THREE.Group();
+          show.name = "care-stage-show";
+          show.add(mesh(BOX, MAT.wood, -17, 0.28, 5.2, 4.4, 0.32, 2));
+          show.add(mesh(BOX, MAT.wood, -17, 0.16, 6.6, 1.6, 0.18, 0.7));
+          show.add(mesh(BOX, MAT.gold, -17, 0.48, 6.15, 4.6, 0.08, 0.12));
+          show.add(mesh(BOX, MAT.petal, -19.3, 1.6, 5.4, 0.16, 2.2, 0.1));
+          show.add(mesh(BOX, MAT.petal, -14.7, 1.6, 5.4, 0.16, 2.2, 0.1));
           const lamp = new THREE.Group();
           lamp.name = "care-stage-lamp";
-          lamp.position.set(-17, 6.2, 9.2);
-          lamp.add(mesh(CYL, MAT.gold, 0, 0.7, 0, 0.04, 0.8, 0.04));
-          lamp.add(mesh(CYL, MAT.gold, 0, 0.15, 0, 0.45, 0.06, 0.45));
-          [[0.32, 0], [-0.32, 0], [0, 0.32], [0, -0.32]].forEach(([x, z]) => lamp.add(mesh(SPH, MAT.glow, x, 0, z, 0.09)));
-          lamp.add(mesh(SPH, MAT.glow, 0, 0.05, 0, 0.12));
-          inn.add(lamp);
+          lamp.position.set(-17, 3.8, 6.8);
+          lamp.add(mesh(CYL, MAT.gold, 0, 0.7, 0, 0.05, 1.1, 0.05));
+          lamp.add(mesh(CYL, MAT.gold, 0, 0.05, 0, 0.85, 0.08, 0.85));
+          for (let i = 0; i < 8; i++) {
+            const a = i / 8 * Math.PI * 2;
+            lamp.add(mesh(SPH, MAT.glow, Math.cos(a) * 0.7, -0.15, Math.sin(a) * 0.7, 0.12));
+            lamp.add(mesh(CYL, MAT.gold, Math.cos(a) * 0.7, -0.02, Math.sin(a) * 0.7, 0.02, 0.2, 0.02));
+          }
+          lamp.add(mesh(SPH, MAT.glow, 0, 0.02, 0, 0.16));
+          show.add(lamp);
+          const ring = new THREE.Mesh(new THREE.TorusGeometry(0.8, 0.06, 8, 24), MAT.gold);
+          ring.rotation.x = -Math.PI / 2;
+          ring.position.set(-17, 0.08, 8.4);
+          show.add(ring);
+          inn.add(show);
           cg.add(inn);
         }
-        g.add(mesh(BOX, MAT.gold, 0, 1.4, 0, 0.08, 0.9, 0.08));
-        g.add(mesh(BOX, MAT.petal, 0.2, 1.7, 0, 0.35, 0.45, 0.04));
       },
       corgi(g) {
-        g.add(mesh(BOX, MAT.stone, 0, 0.55, 0, 1.5, 1, 1.3));
-        g.add(mesh(BOX, MAT.roof, 0, 1.15, 0, 1.7, 0.16, 1.5));
-        [[-0.7, -0.55], [0.7, -0.55], [-0.7, 0.55], [0.7, 0.55]].forEach(([x, z]) => {
-          g.add(mesh(CYL, MAT.stone, x, 0.85, z, 0.16, 1.5, 0.16));
-          g.add(mesh(CONE, MAT.roof, x, 1.75, z, 0.26, 0.4, 0.26));
+        const f = new THREE.Group();
+        f.name = "care-focus";
+        f.add(mesh(BOX, MAT.stone, 0, 0.85, -4, 2.4, 1.5, 2));
+        f.add(mesh(BOX, MAT.roof, 0, 1.7, -4, 2.8, 0.18, 2.3));
+        f.add(mesh(BOX, MAT.gold, 0, 1.52, -4, 2.6, 0.08, 2.15));
+        [[-1.05, -4.8], [1.05, -4.8], [-1.05, -3.2], [1.05, -3.2]].forEach(([x, z]) => {
+          f.add(mesh(CYL, MAT.stone, x, 1.15, z, 0.22, 2.1, 0.22));
+          f.add(mesh(CONE, MAT.roof, x, 2.35, z, 0.38, 0.55, 0.38));
+          f.add(mesh(CYL, MAT.gold, x, 2.05, z, 0.26, 0.08, 0.26));
         });
-        const flag = mesh(BOX, MAT.petal, 0.7, 2.15, -0.55, 0.28, 0.16, 0.02);
-        g.add(flag);
-        g.add(mesh(CYL, MAT.wood, 0.7, 1.7, -0.55, 0.02, 0.7, 0.02));
-        g.add(mesh(BOX, MAT.wood, 0, 0.4, 0.68, 0.4, 0.45, 0.06));
-        g.add(mesh(CYL, MAT.white, 0.55, 0.12, 0.9, 0.16, 0.08, 0.16));
-        [[-0.85, 1.15], [0.85, 1.15], [0, 1.55]].forEach(([x, z], i) => {
-          const t = mesh(SPH, MAT.gold, x, 0.16, z, 0.1);
+        f.add(mesh(CYL, MAT.wood, 1.05, 2.15, -4.8, 0.03, 0.9, 0.03));
+        f.add(mesh(BOX, MAT.petal, 1.28, 2.5, -4.8, 0.38, 0.22, 0.03));
+        f.add(mesh(BOX, MAT.wood, 0, 0.55, -2.95, 0.55, 0.7, 0.08));
+        f.add(mesh(CYL, MAT.white, 0.85, 0.14, -2.7, 0.22, 0.1, 0.22));
+        f.add(mesh(CYL, MAT.water, 0.85, 0.2, -2.7, 0.16, 0.06, 0.16));
+        lampPost(f, -1.5, 0.8, -2.8);
+        [[-1.3, -2.3], [1.3, -2.3], [0, -1.9]].forEach(([x, z], i) => {
+          const t = mesh(SPH, MAT.gold, x, 0.16, z, 0.14);
           t.name = "care-treat-" + i;
-          g.add(t);
+          f.add(t);
         });
+        g.add(f);
       }
     };
   }
@@ -481,16 +590,30 @@
     const p = spotOf(d);
     g.position.set(p.x, 0, p.z);
     builders()[id](g);
-    if (id !== "maze" && id !== "stage") {
-      const sign = plaque(d.name.split(" ").slice(-2).join(" "), 0.95, 0.26);
-      sign.position.set(0, id === "swans" ? 1.15 : 1.85, 1.45);
-      g.add(sign);
+    const focus = g.getObjectByName("care-focus");
+    if (focus) {
+      focus.scale.set(id === "swans" ? 1.7 : 1.15, id === "swans" ? 1.7 : 1.15, id === "swans" ? 1.7 : 1.15);
+      focus.position.z = id === "swans" ? 0 : 2.55;
+    }
+    if (id !== "stage") {
+      standRing(g);
+      if (id !== "maze") {
+        const sign = plaque(d.name.split(" ").slice(-2).join(" "), 1.2, 0.34);
+        sign.position.set(0, 1.7, id === "swans" ? -2.4 : 4.3);
+        g.add(sign);
+      }
     }
     PE.scene.add(g);
     blockers = null;
     (g.userData.blocks || []).forEach((b) => {
-      const w = g.localToWorld(new THREE.Vector3(b.x, 0, b.z));
-      if (PE.obstacles) PE.obstacles.push({ x: w.x, z: w.z, r: b.r });
+      const v = new THREE.Vector3(b.x, 0, b.z);
+      if (focus) {
+        v.multiply(focus.scale);
+        v.add(focus.position);
+      }
+      const w = g.localToWorld(v);
+      const r = b.r * (focus ? focus.scale.x : 1);
+      if (PE.obstacles) PE.obstacles.push({ x: w.x, z: w.z, r });
     });
     built[id] = g;
   }
@@ -561,7 +684,7 @@
     if (id === "nook") {
       const book = PE.scene.getObjectByName("care-nook-book");
       play.slid = play.slid ? 0 : 1;
-      if (book) book.position.x = play.slid ? 1.7 : 0.9;
+      if (book) book.position.x = play.slid ? -0.35 : (book.userData.shut || -1.15);
       const loc = PE.LOCS && PE.LOCS.castle;
       const passage = loc && loc.readings && loc.readings[0] && loc.readings[0].passage;
       const bit = passage ? String(passage).split("\n")[0].slice(0, 140) : "Once there was a princess who loved stories.";
@@ -582,7 +705,13 @@
     if (id === "swans") {
       play.boat = play.boat ? null : { a: Math.atan2(PE.princess.position.z - MOAT.z, PE.princess.position.x - MOAT.x), t: 0 };
       if (!play.boat) {
-        PE.princess.position.set(0, PE.groundH ? PE.groundH(0, 11.4) : 0, 11.4);
+        const home = spotOf(def("swans"));
+        PE.princess.position.set(home.x, PE.groundH ? PE.groundH(home.x, home.z) : 0, home.z);
+        const parked = PE.scene.getObjectByName("care-swan-boat");
+        if (parked && parked.userData.home) {
+          const h = parked.userData.home;
+          parked.position.set(h.x, h.y, h.z);
+        }
       }
       return { ok: true, score: coins(), boating: !!play.boat };
     }
@@ -630,21 +759,34 @@
       }
       if (play.ride.t > 5.5) {
         play.ride = null;
-        if (pony) pony.position.set(0.15, 0, 1.7);
+        const home = pony && pony.userData.home;
+        if (pony && home) pony.position.set(home.x, home.y, home.z);
       }
     }
+    const boat = PE.scene.getObjectByName("care-swan-boat");
+    const boat2 = PE.scene.getObjectByName("care-swan-boat-2");
+    const bob = Math.sin(performance.now() / 450) * 0.07;
     if (play.boat) {
       play.boat.t += dt;
-      play.boat.a += dt * 0.5;
+      play.boat.a += dt * 0.35;
       const x = MOAT.x + Math.cos(play.boat.a) * MOAT.mid;
       const z = MOAT.z + Math.sin(play.boat.a) * MOAT.mid;
-      PE.princess.position.set(x, 0.55, z);
-      const boat = PE.scene.getObjectByName("care-swan-boat");
+      PE.princess.position.set(x, 0.62, z);
       if (boat && boat.parent) {
-        const local = boat.parent.worldToLocal(new THREE.Vector3(x, 0.35, z));
+        const local = boat.parent.worldToLocal(new THREE.Vector3(x, 0.35 + bob, z));
         boat.position.copy(local);
         boat.rotation.y = -play.boat.a;
       }
+    } else if (boat && boat.userData.home) {
+      const h = boat.userData.home;
+      boat.position.set(h.x, h.y + bob, h.z);
+      boat.rotation.y = h.ry || 0;
+      boat.rotation.z = Math.sin(performance.now() / 700) * 0.04;
+    }
+    if (boat2 && boat2.userData.home && !play.boat) {
+      const h = boat2.userData.home;
+      boat2.position.set(h.x, h.y + Math.sin(performance.now() / 520 + 1) * 0.06, h.z);
+      boat2.rotation.y = h.ry || 0;
     }
   }
 
@@ -767,9 +909,9 @@
     s.id = "v45-style";
     s.textContent = `
 #castle-exit-btn.show{height:56px;font-size:18px;z-index:24}
-#toast{top:150px !important;bottom:auto !important;z-index:18 !important;max-width:min(420px,70vw) !important}
-@media (max-height:450px){#toast{top:64px !important;max-width:42vw !important;font-size:14px !important}}
-@media (max-width:500px) and (min-height:700px){#toast{top:248px !important;max-width:78vw !important}}
+#toast{top:172px !important;left:16px !important;right:auto !important;bottom:auto !important;transform:none !important;z-index:18 !important;max-width:230px !important;text-align:left !important}
+@media (max-height:450px){#toast{top:70px !important;left:228px !important;max-width:200px !important;font-size:14px !important}}
+@media (max-width:500px) and (min-height:700px){#toast{top:248px !important;left:10px !important;max-width:168px !important}}
 #prompt,#care-prompt{z-index:16}
 #care-prompt{position:fixed;display:none;background:#fff;border:5px solid #ff7ac8;border-radius:26px;padding:12px 18px;font-size:22px;text-align:center;box-shadow:0 6px 0 rgba(0,0,0,.15);cursor:pointer}
 #v45-panel{position:fixed;inset:0;z-index:40;background:rgba(90,40,120,.4);display:none;align-items:center;justify-content:center;padding:12px}
@@ -996,7 +1138,7 @@
     for (let i = 0; i < hits.length && faded.length < 4; i++) {
       const y = hits[i].point.y;
       const mesh = hits[i].object;
-      if (y < 0.5 || y > 8 || !mesh.visible) continue;
+      if (y < 0.5 || y > 8 || !mesh.visible || isCare(mesh)) continue;
       mesh.visible = false;
       faded.push(mesh);
     }
@@ -1045,6 +1187,37 @@
       faded.push(h.object);
     });
   }
+  function groundSigns() {
+    if (PE.scene.getObjectByName("v45-posts")) return;
+    mats();
+    const sprites = [];
+    PE.scene.traverse((o) => {
+      if (!o.isSprite || o.userData.v45post) return;
+      if (o.scale.x < 1.4) return;
+      sprites.push(o);
+    });
+    if (!sprites.length) return;
+    const root = new THREE.Group();
+    root.name = "v45-posts";
+    sprites.forEach((o) => {
+      const w = new THREE.Vector3();
+      o.getWorldPosition(w);
+      o.visible = false;
+      o.userData.v45post = 1;
+      const post = new THREE.Group();
+      post.position.set(w.x, 0, w.z);
+      post.add(mesh(CYL, MAT.wood, 0, 0.65, 0, 0.07, 1.3, 0.07));
+      post.add(mesh(BOX, MAT.stone, 0, 1.4, 0, 1.05, 0.4, 0.08));
+      post.add(mesh(BOX, MAT.gold, 0, 1.4, 0, 1.14, 0.48, 0.04));
+      if (o.material && o.material.map) {
+        const face = new THREE.Mesh(new THREE.PlaneGeometry(0.96, 0.32), new THREE.MeshLambertMaterial({ map: o.material.map, transparent: true, depthWrite: true }));
+        face.position.set(0, 1.4, 0.05);
+        post.add(face);
+      }
+      root.add(post);
+    });
+    PE.scene.add(root);
+  }
   let labelFrames = 0;
   function tameSkyLabels() {
     if (labelFrames > 45) return;
@@ -1078,18 +1251,10 @@
     let best = null, dist = 3.4;
     DEFS.forEach((d) => {
       if (!own(d.id)) return;
-      if (d.id === "maze") {
-        if (!inside) {
-          const s = spotOf(d);
-          const dd = Math.hypot(p.x - s.x, p.z - (s.z + 2.4));
-          if (dd < dist) { dist = dd; best = d.id; }
-        }
-        return;
-      }
       if (d.id === "stage") {
         if (!inside) return;
         const x = p.x - PE.v3.castle.IC.x, z = p.z - PE.v3.castle.IC.z;
-        const dd = Math.hypot(x + 17, z - 11);
+        const dd = Math.hypot(x + 17, z - 8.4);
         if (dd < dist) { dist = dd; best = d.id; }
         return;
       }
@@ -1111,6 +1276,7 @@
       frame(dt);
       occlude();
       tameSkyLabels();
+      groundSigns();
       nearId = nearestCare();
       renderNear();
       hallSigns();

@@ -9,9 +9,9 @@ Game version: **v4.5**.
 - Royal quest map: ten short chapters through the gate, castle rooms, the garden island, and a practice question. Progress is saved. The little checks do not pay coins.
 - Castle care: confirm-before-charge, a fresh coin and prerequisite check, no second charge, hidden until bought, saved. Twelve additions are on that list.
 - Castle grounds radius 15 → 19.5 (×1.30). Interior rooms stay the same size. Paths now start at the new edge. A saved position on the old lawn (farther than the moat, inside the old 15) is scaled once by 1.30. Coins, stars, items, and other fields stay.
-- Hall signs are small solid plaques above the doorways, off the carpet.
-- The welcome toast sits under the top bar, so it does not cover the Sir Biscuit prompt.
-- Outdoor roofs that sit between the camera and the princess fade for a moment so she stays visible. The Royal Study sky label is a small sign.
+- Each addition has its own ring. Standing on that ring, the gameplay camera frames the build.
+- Hall signs are small plaques above the doorways. The welcome toast sits on the left, clear of those plaques and of the Sir Biscuit prompt.
+- Castle Gate and Castle Challenge are small solid signs on posts. A roof that crosses the princess fades.
 - Prompt and Exit are 56px and do not overlap at 1280×720, 390×844, or 844×390.
 - Grown-ups page (12 × 8 = 96): weak kinds, recent answers, wardrobe / gate / build spending.
 - Weekly review repeats missed question kinds and pays nothing.
@@ -44,7 +44,7 @@ No page errors. Only this agent was running, so the SwiftShader passes were seri
 Hall entry, same camera `(400, 4.2, 9)`, median of three on this machine (not a phone):
 
 - v4.4 baseline: **5** (3.75, 5, 5)
-- v4.5 after the model pass: **5.3** (4.5, 5.3, 5.4)
+- v4.5 after the framed model pass: **3.4** (2.4, 3.4, 3.7)
 
 The runs overlap. This is not a phone measurement.
 
