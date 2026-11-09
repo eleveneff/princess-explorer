@@ -46,7 +46,7 @@ Hall entry, same camera `(400, 4.2, 9)`, median of three on this machine (not a 
 - v4.4 baseline: **5** (3.75, 5, 5)
 - v4.5 after the framed model pass: **3.4** (2.4, 3.4, 3.7)
 
-The runs overlap. This is not a phone measurement.
+Same camera as v4.4. SwiftShader on this machine jumps between samples. This is not a phone measurement.
 
 ## Nits
 
