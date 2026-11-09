@@ -31,7 +31,7 @@ const browser = await puppeteer.launch({
 const page = await browser.newPage();
 page.on("pageerror", (e) => check("page error", false, e.message));
 await page.evaluateOnNewDocument((payload) => localStorage.setItem("princess-explorer-save-v1", JSON.stringify(payload)), {
-  score: 55, pos: { x: -17.8, z: -23.2 }, ver: 3, v45: { layout: 1, moat: 2 }
+  score: 55, pos: { x: -24, z: -32 }, ver: 3, v45: { layout: 1, moat: 2 }
 });
 await page.setViewport({ width: 1280, height: 720 });
 await page.goto("http://127.0.0.1:8773/index.html?debug=castle", { waitUntil: "networkidle0", timeout: 60000 });
@@ -61,6 +61,7 @@ const report = await page.evaluate(() => {
   const playing = S.splash();
   const dog = PE.scene.getObjectByName("v34-biscuit");
   const dogIn = dog && Math.hypot(dog.position.x - S.splashAt.x, dog.position.z - S.splashAt.z) < 1.2;
+  const hump = bridges.every((b) => S.lift(b.x, b.z) > 0.7);
   return {
     sourceR: +Math.hypot(S.source.x, S.source.z).toFixed(1),
     inletOnRim: Math.abs(rim(S.inlet) - 12.28) < 0.45,
@@ -68,6 +69,7 @@ const report = await page.evaluate(() => {
     joined: near(S.inlet.x, S.inlet.z, 0.6) && near(S.outlet.x, S.outlet.z, 0.6) && near(S.source.x, S.source.z, 0.6),
     angles: +Math.abs(ang(S.inlet) - ang(S.outlet)).toFixed(2),
     bridgeClear,
+    hump,
     bridges: bridges.length,
     clearSpots,
     garden: around(garden, 6, 14),
@@ -78,13 +80,13 @@ const report = await page.evaluate(() => {
     streamFlag: PE.state().v45.stream
   };
 });
-check("the stream runs from the mountains into the moat and out again", report.joined && report.sourceR > 28 && report.inletOnRim && report.outletOnRim, JSON.stringify(report));
+check("the stream runs from the mountains into the moat and out again", report.joined && report.sourceR > 42 && report.inletOnRim && report.outletOnRim, JSON.stringify(report));
 check("the inlet and the outlet are on different sides", report.angles > 1.5, JSON.stringify(report.angles));
-check("four footbridges are clear to walk", report.bridgeClear && report.bridges === 4, JSON.stringify(report.bridgeClear));
+check("four footbridges are clear to walk and arched", report.bridgeClear && report.hump && report.bridges === 4, JSON.stringify({ clear: report.bridgeClear, hump: report.hump }));
 check("the ribbon stays off the activity rings", report.clearSpots, JSON.stringify(report.clearSpots));
 check("the stream passes the garden and the art lawn", report.garden && report.art, JSON.stringify(report));
 check("Sir Biscuit splashes without changing coins", (report.started === "run" || report.playing === "play") && report.dogIn && report.coinsSame, JSON.stringify(report));
-check("a saved position in the stream moves to the bank once", report.streamFlag === 1 && report.pos && Math.hypot(report.pos.x + 17.8, report.pos.z + 23.2) > 1.2, JSON.stringify(report.pos));
+check("a saved position in the stream moves to the bank once", report.streamFlag === 1 && report.pos && Math.hypot(report.pos.x + 24, report.pos.z + 32) > 1.2, JSON.stringify(report.pos));
 const stillIn = await page.evaluate(() => {
   const p = window.PrincessExplorer.state().pos;
   return window.PrincessExplorer.stream.inDeep(p.x, p.z);
