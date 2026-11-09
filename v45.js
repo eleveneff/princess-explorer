@@ -285,12 +285,23 @@
     const pos = new Float32Array(n * 6);
     const uv = new Float32Array(n * 4);
     const idx = [];
+    const tinted = samples.some((s) => s.fade != null && s.fade < 0.999);
+    const cols = tinted ? new Float32Array(n * 6) : null;
+    const base = tinted ? new THREE.Color(mat.color || "#7fd3f0") : null;
+    const fogC = new THREE.Color("#d4ebf7");
     samples.forEach((s, i) => {
+      const h = s.half != null ? s.half * (half / 1.6) : half;
       const a = i * 2, b = a + 1;
-      const yL = groundAt(s.x + s.nx * half, s.z + s.nz * half) + lift;
-      const yR = groundAt(s.x - s.nx * half, s.z - s.nz * half) + lift;
-      pos[a * 3] = s.x + s.nx * half; pos[a * 3 + 1] = yL; pos[a * 3 + 2] = s.z + s.nz * half;
-      pos[b * 3] = s.x - s.nx * half; pos[b * 3 + 1] = yR; pos[b * 3 + 2] = s.z - s.nz * half;
+      const yL = groundAt(s.x + s.nx * h, s.z + s.nz * h) + lift;
+      const yR = groundAt(s.x - s.nx * h, s.z - s.nz * h) + lift;
+      pos[a * 3] = s.x + s.nx * h; pos[a * 3 + 1] = yL; pos[a * 3 + 2] = s.z + s.nz * h;
+      pos[b * 3] = s.x - s.nx * h; pos[b * 3 + 1] = yR; pos[b * 3 + 2] = s.z - s.nz * h;
+      if (cols) {
+        const c = base.clone().lerp(fogC, 1 - (s.fade == null ? 1 : s.fade));
+        cols[a * 3] = cols[b * 3] = c.r;
+        cols[a * 3 + 1] = cols[b * 3 + 1] = c.g;
+        cols[a * 3 + 2] = cols[b * 3 + 2] = c.b;
+      }
       uv[a * 2] = 0; uv[a * 2 + 1] = s.t * 10;
       uv[b * 2] = 1; uv[b * 2 + 1] = s.t * 10;
       if (i) {
@@ -301,9 +312,12 @@
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     geo.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+    if (cols) geo.setAttribute("color", new THREE.BufferAttribute(cols, 3));
     geo.setIndex(idx);
     geo.computeVertexNormals();
-    const m = new THREE.Mesh(geo, mat);
+    const material = cols ? mat.clone() : mat;
+    if (cols) material.vertexColors = true;
+    const m = new THREE.Mesh(geo, material);
     m.frustumCulled = false;
     return m;
   }
@@ -311,12 +325,24 @@
     const n = samples.length;
     const pos = new Float32Array(n * 6);
     const idx = [];
+    const tinted = samples.some((s) => s.fade != null && s.fade < 0.999);
+    const cols = tinted ? new Float32Array(n * 6) : null;
+    const base = tinted ? new THREE.Color(mat.color || "#b08968") : null;
+    const fogC = new THREE.Color("#d4ebf7");
     samples.forEach((s, i) => {
+      const scale = s.half != null ? s.half / 1.6 : 1;
       const a = i * 2, b = a + 1;
-      const yA = groundAt(s.x + s.nx * sign * inner, s.z + s.nz * sign * inner) + lift - 0.12;
-      const yB = groundAt(s.x + s.nx * sign * outer, s.z + s.nz * sign * outer) + lift;
-      pos[a * 3] = s.x + s.nx * sign * inner; pos[a * 3 + 1] = yA; pos[a * 3 + 2] = s.z + s.nz * sign * inner;
-      pos[b * 3] = s.x + s.nx * sign * outer; pos[b * 3 + 1] = yB; pos[b * 3 + 2] = s.z + s.nz * sign * outer;
+      const innerS = inner * scale, outerS = outer * scale;
+      const yA = groundAt(s.x + s.nx * sign * innerS, s.z + s.nz * sign * innerS) + lift - 0.12;
+      const yB = groundAt(s.x + s.nx * sign * outerS, s.z + s.nz * sign * outerS) + lift;
+      pos[a * 3] = s.x + s.nx * sign * innerS; pos[a * 3 + 1] = yA; pos[a * 3 + 2] = s.z + s.nz * sign * innerS;
+      pos[b * 3] = s.x + s.nx * sign * outerS; pos[b * 3 + 1] = yB; pos[b * 3 + 2] = s.z + s.nz * sign * outerS;
+      if (cols) {
+        const c = base.clone().lerp(fogC, 1 - (s.fade == null ? 1 : s.fade));
+        cols[a * 3] = cols[b * 3] = c.r;
+        cols[a * 3 + 1] = cols[b * 3 + 1] = c.g;
+        cols[a * 3 + 2] = cols[b * 3 + 2] = c.b;
+      }
       if (i) {
         const k = (i - 1) * 2;
         idx.push(k, k + 1, a, k + 1, b, a);
@@ -324,11 +350,26 @@
     });
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    if (cols) geo.setAttribute("color", new THREE.BufferAttribute(cols, 3));
     geo.setIndex(idx);
     geo.computeVertexNormals();
-    const m = new THREE.Mesh(geo, mat);
+    const material = cols ? mat.clone() : mat;
+    if (cols) material.vertexColors = true;
+    const m = new THREE.Mesh(geo, material);
     m.frustumCulled = false;
     return m;
+  }
+  function stampFade(samples, wideAtStart) {
+    const n = samples.length;
+    for (let i = 0; i < n; i++) {
+      const t = i / (n - 1);
+      const away = wideAtStart ? t : 1 - t;
+      const s = samples[i];
+      s.half = 1.55 * Math.pow(1 - away, 1.15) + 0.04;
+      s.fade = Math.pow(1 - away, 1.4);
+      if (away < 0.05) { s.half = 1.6; s.fade = 1; }
+      s.scenery = true;
+    }
   }
   function sparkleTexture() {
     const c = document.createElement("canvas");
@@ -517,7 +558,67 @@
       root.add(sheet);
       falls.add(sheet);
     }
+    for (let i = 0; i < 5; i++) {
+      const dist = 10 + i * 4;
+      const x = src[0] + Math.cos(outAng) * dist;
+      const z = src[1] + Math.sin(outAng) * dist;
+      const y = groundAt(x, z);
+      const rock = mesh(BOX, MAT.bridgeStone, x, y + 0.22, z, 2.5 - i * 0.22, 0.38, 1.15);
+      rock.rotation.y = -outAng;
+      root.add(rock);
+      const sheet = mesh(BOX, MAT.falls, x - Math.cos(outAng) * 0.55, y + 0.7, z - Math.sin(outAng) * 0.55, 1.7 - i * 0.12, 1.05, 0.16);
+      sheet.rotation.y = -outAng;
+      sheet.name = "stream-fall";
+      root.add(sheet);
+      falls.add(sheet);
+    }
     root.add(falls);
+    const side = outAng + Math.PI / 2;
+    const ray = (r, sway) => [Math.cos(outAng) * r + Math.cos(side) * sway, Math.sin(outAng) * r + Math.sin(side) * sway];
+    const join = [src[0] + Math.cos(outAng) * 26, src[1] + Math.sin(outAng) * 26];
+    const ontoFalls = [src[0] + Math.cos(outAng) * 1.2, src[1] + Math.sin(outAng) * 1.2];
+    const UP_FAR = [ray(220, 0), ray(192, 16), ray(164, -14), ray(138, 12), ray(114, -10), ray(96, 6), ray(82, -3), join, ontoFalls];
+    const pond = DOWN[DOWN.length - 1];
+    const beforePond = DOWN[DOWN.length - 2];
+    const ix = pond[0] - beforePond[0], iz = pond[1] - beforePond[1];
+    const il = Math.hypot(ix, iz) || 1;
+    const spill = [pond[0] + ix / il * 5, pond[1] + iz / il * 5];
+    const DOWN_FAR = [pond, spill, [14, 50], [4, 64], [20, 80], [2, 98], [22, 118], [6, 140], [26, 162], [4, 184], [18, 206], [2, 226]];
+    const farUp = sampleCurve(curveOf(UP_FAR), 64);
+    const farDown = sampleCurve(curveOf(DOWN_FAR), 72);
+    stampFade(farUp, false);
+    stampFade(farDown, true);
+    stream.spans.push(farUp, farDown);
+    farUp.concat(farDown).forEach((s) => stream.samples.push(s));
+    [farUp, farDown].forEach((samples) => {
+      root.add(ribbonMesh(samples, 2.55, 0.08, MAT.sand));
+      root.add(sideLip(samples, 1, 1.65, 2.45, 0.42, MAT.wet));
+      root.add(sideLip(samples, -1, 1.65, 2.45, 0.42, MAT.wet));
+      const water = ribbonMesh(samples, 1.6, 0.2, MAT.brook);
+      water.name = "stream-horizon";
+      root.add(water);
+      root.add(ribbonMesh(samples, 1.55, 0.24, MAT.brookShine));
+    });
+    const pondY = groundAt(pond[0], pond[1]);
+    const pondPool = new THREE.Mesh(new THREE.CircleGeometry(4.6, 28), MAT.brook);
+    pondPool.rotation.x = -Math.PI / 2;
+    pondPool.position.set(pond[0], pondY + 0.21, pond[1]);
+    pondPool.name = "stream-pond";
+    root.add(pondPool);
+    stream.horizon = {
+      upR: +Math.hypot(farUp[0].x, farUp[0].z).toFixed(1),
+      downR: +Math.hypot(farDown[farDown.length - 1].x, farDown[farDown.length - 1].z).toFixed(1),
+      upFade: +farUp[0].fade.toFixed(3),
+      downFade: +farDown[farDown.length - 1].fade.toFixed(3)
+    };
+    let minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9;
+    stream.spans.forEach((span) => span.forEach((s) => {
+      if (s.x < minX) minX = s.x;
+      if (s.x > maxX) maxX = s.x;
+      if (s.z < minZ) minZ = s.z;
+      if (s.z > maxZ) maxZ = s.z;
+    }));
+    stream.box = { minX, maxX, minZ, maxZ };
     const poolY = groundAt(src[0], src[1]);
     const foam = new THREE.Mesh(new THREE.CircleGeometry(2.4, 20), MAT.brook);
     foam.rotation.x = -Math.PI / 2;
@@ -584,6 +685,7 @@
     stream.drops = drops;
     PE.scene.add(root);
     stream.samples.forEach((s) => {
+      if (s.scenery && Math.hypot(s.x, s.z) > 51) return;
       if (moatRadius(s.x, s.z) < 12.55) return;
       if (BRIDGES.some((b) => Math.hypot(s.x - b.x, s.z - b.z) < 2.15)) return;
       if (Math.hypot(s.x - SPLASH.x, s.z - SPLASH.z) < SPLASH.r + 0.3) return;
@@ -678,7 +780,8 @@
         if (v.z > maxZ) maxZ = v.z;
       }
       if (maxX - minX > 220 || maxZ - minZ > 220) return;
-      if (maxX < -48 || minX > 40 || maxZ < -58 || minZ > 48) return;
+      const box = stream.box;
+      if (box && (maxX < box.minX - 6 || minX > box.maxX + 6 || maxZ < box.minZ - 6 || minZ > box.maxZ + 6)) return;
       const cx = new Float32Array(triCount);
       const cz = new Float32Array(triCount);
       const cy = new Float32Array(triCount);
@@ -955,7 +1058,7 @@
         const bx = v.x, by = v.y, bz = v.z;
         v.fromBufferAttribute(pos, c).applyMatrix4(M);
         const x = (ax + bx + v.x) / 3, y = (ay + by + v.y) / 3, z = (az + bz + v.z) / 3;
-        if (y < -2) continue;
+        if (y < -2 || y > groundAt(x, z) + 2.4) continue;
         if (Math.max(Math.hypot(ax - bx, az - bz), Math.hypot(bx - v.x, bz - v.z), Math.hypot(v.x - ax, v.z - az)) > 8) continue;
         checks++;
         if (inChannel(x, z)) {
@@ -2457,6 +2560,7 @@
     tick: splashTick,
     lift: bridgeLift,
     lockCam: (x, y, z) => { camHold = [x, y, z]; },
+    horizon: () => stream.horizon,
     audit: auditChannel,
     cleared: () => stream.cleared
   };
