@@ -170,7 +170,7 @@
     { id: "training", name: "Fencing and Jiu Jitsu Training Hall", price: 50, need: [], blurb: "Practice spots and ribbons.", ang: 98, rad: 16.8, front: 4.8 },
     { id: "court", name: "Royal Tennis Court", price: 40, need: [], blurb: "A court beside the castle, tied to the tennis game.", ang: 178, rad: 15.3, front: 5.4 },
     { id: "observatory", name: "Star Observatory", price: 45, need: [], blurb: "A telescope dome and constellation patterns.", ang: 198, rad: 16.4, front: 4.8 },
-    { id: "swans", name: "Moat Swan Boats", price: 30, need: [], blurb: "Pedal a swan boat around the moat.", ang: 30, rad: 8.2, front: 3.6 },
+    { id: "swans", name: "Moat Swan Boats", price: 30, need: [], blurb: "Pedal a swan boat around the moat.", ang: 50, rad: 10.7, front: 3.5, side: 1.85 },
     { id: "stage", name: "Grand Ballroom Chandelier and Stage", price: 35, need: [], blurb: "A dance stage and a glowing chandelier inside the ballroom.", ang: 90, rad: 18, front: 4 },
     { id: "corgi", name: "Corgi Castle for Sir Biscuit", price: 25, need: [], blurb: "A doghouse and a treat game. No coins, just a happy corgi.", ang: 308, rad: 15.2, front: 4.6 }
   ];
@@ -181,7 +181,8 @@
   function spotOf(d) {
     const a = d.ang * Math.PI / 180;
     const R = d.rad + (d.front || 4.4);
-    return { x: Math.cos(a) * R, z: Math.sin(a) * R };
+    const side = d.side || 0;
+    return { x: Math.cos(a) * R + Math.sin(a) * side, z: Math.sin(a) * R - Math.cos(a) * side };
   }
   function def(id) { return DEFS.find((d) => d.id === id) || null; }
   function own(id) { return !!(bag().care.owned && bag().care.owned[id]); }
@@ -331,11 +332,13 @@
     boat.add(mesh(BOX, MAT.white, 0, 0.48, 0, 2.35, 0.12, 0.88));
     boat.add(mesh(BOX, MAT.gold, -0.2, 0.66, 0, 0.7, 0.1, 0.55));
     boat.add(mesh(BOX, MAT.wood, -0.2, 0.95, -0.32, 0.62, 0.45, 0.08));
-    boat.add(mesh(SPH, MAT.white, 0, 0.62, -0.25, 0.48, 0.28, 0.42));
-    boat.add(mesh(CYL, MAT.white, 0, 1.75, 0.85, 0.12, 2.6, 0.12));
-    boat.add(mesh(SPH, MAT.white, 0, 3.15, 0.85, 0.32, 0.26, 0.36));
-    boat.add(mesh(BOX, MAT.gold, 0, 3.1, 1.35, 0.1, 0.08, 0.7));
-    boat.add(mesh(SPH, MAT.stone, 0.12, 3.14, 0.95, 0.05));
+    boat.add(mesh(SPH, MAT.white, 0, 0.72, -0.2, 0.78, 0.46, 0.95));
+    const neck = mesh(CYL, MAT.white, 0, 1.55, 0.45, 0.13, 2.15, 0.13);
+    neck.rotation.x = -0.65;
+    boat.add(neck);
+    boat.add(mesh(SPH, MAT.white, 0, 2.45, 1.15, 0.34, 0.28, 0.38));
+    boat.add(mesh(BOX, MAT.gold, 0, 2.38, 1.55, 0.12, 0.09, 0.62));
+    boat.add(mesh(SPH, MAT.stone, 0.12, 2.55, 1.2, 0.05));
     boat.add(mesh(CYL, MAT.gold, -0.85, 0.4, 0.62, 0.14, 0.06, 0.14));
     boat.add(mesh(CYL, MAT.gold, -0.85, 0.4, -0.62, 0.14, 0.06, 0.14));
     return boat;
@@ -522,16 +525,14 @@
       swans(g) {
         const f = new THREE.Group();
         f.name = "care-focus";
-        f.add(mesh(BOX, MAT.wood, 0, 0.16, 0.2, 1.4, 0.12, 1.2));
-        const boat = swanBoat("care-swan-boat");
-        boat.position.set(1.7, 0.1, 2.15);
-        boat.userData.home = { x: 1.7, y: 0.1, z: 2.15, ry: 0 };
-        f.add(boat);
-        const boat2 = swanBoat("care-swan-boat-2");
-        boat2.position.set(-1.75, 0.1, 1.9);
-        boat2.rotation.y = -0.2;
-        boat2.userData.home = { x: -1.75, y: 0.1, z: 1.9, ry: -0.2 };
-        f.add(boat2);
+        [[-2.2, 0.1, 0.05, "care-swan-boat"], [0.05, 0.28, -0.02, "care-swan-boat-2"], [2.25, 0.08, 0.04, "care-swan-boat-3"]].forEach(([x, z, ry, name]) => {
+          const boat = swanBoat(name);
+          boat.scale.set(0.86, 0.86, 0.86);
+          boat.position.set(x, -0.05, z);
+          boat.rotation.y = ry;
+          boat.userData.home = { x, y: -0.05, z, ry };
+          f.add(boat);
+        });
         g.add(f);
       },
       stage(g) {
@@ -600,16 +601,20 @@
     g.position.set(c.x, 0, c.z);
     if (id !== "stage") g.rotation.y = Math.PI / 2 - d.ang * Math.PI / 180;
     builders()[id](g);
-    const focus = g.getObjectByName("care-focus");
-    if (focus && id === "swans") focus.scale.set(1.25, 1.25, 1.25);
     if (id !== "stage") {
       const ring = new THREE.Mesh(new THREE.TorusGeometry(0.95, 0.08, 8, 28), MAT.gold);
       ring.rotation.x = -Math.PI / 2;
-      ring.position.set(0, 0.07, d.front || 4.4);
+      ring.position.set(d.side || 0, 0.07, d.front || 4.4);
       g.add(ring);
-      const sign = plaque(d.name, 2.8, 0.78);
-      sign.position.set(0, id === "court" ? 2.4 : 4.4, id === "swans" ? -0.2 : 0.15);
-      g.add(sign);
+      if (id === "swans") {
+        const sign = plaque(d.name, 1.45, 0.4);
+        sign.position.set(-0.15, 2.55, 1.15);
+        g.add(sign);
+      } else {
+        const sign = plaque(d.name, 2.8, 0.78);
+        sign.position.set(0, id === "court" ? 2.4 : 4.4, 0.15);
+        g.add(sign);
+      }
     }
     PE.scene.add(g);
     blockers = null;
@@ -785,11 +790,13 @@
       boat.rotation.y = h.ry || 0;
       boat.rotation.z = Math.sin(performance.now() / 700) * 0.04;
     }
-    if (boat2 && boat2.userData.home && !play.boat) {
-      const h = boat2.userData.home;
-      boat2.position.set(h.x, h.y + Math.sin(performance.now() / 520 + 1) * 0.06, h.z);
-      boat2.rotation.y = h.ry || 0;
-    }
+    [boat2, PE.scene.getObjectByName("care-swan-boat-3")].forEach((extra, i) => {
+      if (extra && extra.userData.home && !play.boat) {
+        const h = extra.userData.home;
+        extra.position.set(h.x, h.y + Math.sin(performance.now() / 520 + i) * 0.06, h.z);
+        extra.rotation.y = h.ry || 0;
+      }
+    });
   }
 
   function weekId(d) {
@@ -1279,13 +1286,34 @@
     const d = def(nearId);
     const a = d.ang * Math.PI / 180;
     const ox = Math.cos(a), oz = Math.sin(a);
-    if (d.id === "swans") PE.setCam(ox * 3.6, 2.5, oz * 3.6);
+    if (d.id === "swans") {
+      const narrow = (window.innerWidth || 1280) < 700;
+      const side = narrow ? -0.55 : -1.55;
+      const out = narrow ? 7.4 : 1.7;
+      const lift = narrow ? 5.2 : 2.05;
+      PE.setCam(Math.sin(a) * side + Math.cos(a) * out, lift, -Math.cos(a) * side + Math.sin(a) * out);
+    }
     else {
       const dist = d.id === "court" ? 7.2 : 6.2;
       const lift = d.id === "court" ? 5.4 : 3.6;
       PE.setCam(ox * dist - oz * 0.55, lift, oz * dist + ox * 0.55);
     }
     PE.snapCamera();
+  }
+  function hookSwanLook() {
+    const cam = PE.camera;
+    if (!cam || cam._v45swan) return;
+    const orig = cam.lookAt.bind(cam);
+    cam.lookAt = function (x, y, z) {
+      if (nearId !== "swans") return orig(x, y, z);
+      const d = def("swans");
+      const a = d.ang * Math.PI / 180;
+      const ox = Math.cos(a), oz = Math.sin(a);
+      const tx = Math.sin(a), tz = -Math.cos(a);
+      const c = centerOf(d);
+      orig(c.x + ox * 0.4 + tx * 0.1, 1.2, c.z + oz * 0.4 + tz * 0.1);
+    };
+    cam._v45swan = 1;
   }
   function hookStageCam() {
     const castle = PE.v3 && PE.v3.castle;
@@ -1327,6 +1355,7 @@
   }
 
   migrateLayout();
+  hookSwanLook();
   hookStageCam();
   lawn();
   restore();
