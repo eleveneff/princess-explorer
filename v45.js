@@ -7,7 +7,7 @@
   const SCALE = 1.3;
   const OLD_R = 15;
   const NEW_R = 19.5;
-  const MOAT = { x: 0, z: -1, mid: 8.8 };
+  const MOAT = { x: 0, z: -1, inner: 7.6, outer: 10.72, mid: 9.16 };
 
   function coins() {
     return Math.max(0, Math.floor(+PE.state().score || 0));
@@ -49,6 +49,31 @@
       }
     }
     v.layout = 1;
+    persist();
+  }
+  function migrateMoat() {
+    const s = PE.state();
+    const v = bag();
+    if (v.moat === 1) return;
+    const pos = s.pos;
+    if (pos && Number.isFinite(+pos.x) && Number.isFinite(+pos.z) && Math.abs(+pos.x) < 80) {
+      const dx = +pos.x - MOAT.x, dz = +pos.z - MOAT.z;
+      const r = Math.hypot(dx, dz);
+      const onBridge = Math.abs(+pos.x) < 1.8 && +pos.z > 5.5 && +pos.z < 14;
+      if (!onBridge && r > MOAT.inner - 0.25 && r < MOAT.outer + 0.85) {
+        const ang = Math.atan2(dz, dx);
+        const nr = MOAT.outer + 1.75;
+        const nx = +(MOAT.x + Math.cos(ang) * nr).toFixed(2);
+        const nz = +(MOAT.z + Math.sin(ang) * nr).toFixed(2);
+        s.pos = { x: nx, z: nz };
+        if (PE.princess) {
+          PE.princess.position.x = nx;
+          PE.princess.position.z = nz;
+          if (PE.groundH) PE.princess.position.y = PE.groundH(nx, nz);
+        }
+      }
+    }
+    v.moat = 1;
     persist();
   }
 
@@ -170,7 +195,7 @@
     { id: "training", name: "Fencing and Jiu Jitsu Training Hall", price: 50, need: [], blurb: "Practice spots and ribbons.", ang: 98, rad: 16.8, front: 4.8 },
     { id: "court", name: "Royal Tennis Court", price: 40, need: [], blurb: "A court beside the castle, tied to the tennis game.", ang: 178, rad: 15.3, front: 5.4 },
     { id: "observatory", name: "Star Observatory", price: 45, need: [], blurb: "A telescope dome and constellation patterns.", ang: 198, rad: 16.4, front: 4.8 },
-    { id: "swans", name: "Moat Swan Boats", price: 30, need: [], blurb: "Pedal a swan boat around the moat.", ang: 50, rad: 10.6, front: 3.7, side: 2.15 },
+    { id: "swans", name: "Moat Swan Boats", price: 30, need: [], blurb: "Pedal a swan boat around the moat.", ang: 50, rad: 10.25, front: 3.85, side: 2.2 },
     { id: "stage", name: "Grand Ballroom Chandelier and Stage", price: 35, need: [], blurb: "A dance stage and a glowing chandelier inside the ballroom.", ang: 90, rad: 18, front: 4 },
     { id: "corgi", name: "Corgi Castle for Sir Biscuit", price: 25, need: [], blurb: "A doghouse and a treat game. No coins, just a happy corgi.", ang: 308, rad: 15.2, front: 4.6 }
   ];
@@ -230,7 +255,7 @@
     mats();
     const g = new THREE.Group();
     g.name = "v45-lawn";
-    const ring = new THREE.Mesh(new THREE.RingGeometry(10.7, NEW_R, 64), new THREE.MeshLambertMaterial({ color: "#b6e39a" }));
+    const ring = new THREE.Mesh(new THREE.RingGeometry(11.65, NEW_R, 64), new THREE.MeshLambertMaterial({ color: "#b6e39a" }));
     ring.rotation.x = -Math.PI / 2;
     ring.position.y = 0.035;
     ring.receiveShadow = true;
@@ -361,6 +386,13 @@
     boat.add(mesh(SPH, MAT.white, -0.1, 2.58, 1.34, 0.018));
     boat.add(mesh(CYL, MAT.gold, -0.72, 0.22, 0.48, 0.16, 0.06, 0.16));
     boat.add(mesh(CYL, MAT.gold, -0.72, 0.22, -0.48, 0.16, 0.06, 0.16));
+    for (let i = 0; i < 3; i++) {
+      const wake = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), MAT.ripple.clone());
+      wake.name = "care-swan-wake";
+      wake.position.set(0, 0.08, -0.7 - i * 0.38);
+      wake.userData.i = i;
+      boat.add(wake);
+    }
     const ripple = new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.045, 8, 28), MAT.ripple);
     ripple.rotation.x = -Math.PI / 2;
     ripple.position.set(0, 0.04, -0.05);
@@ -761,17 +793,14 @@
       return { ok: true, score: coins(), tennis: true };
     }
     if (id === "swans") {
-      play.boat = play.boat ? null : { a: Math.atan2(PE.princess.position.z - MOAT.z, PE.princess.position.x - MOAT.x), t: 0 };
-      if (!play.boat) {
-        const home = spotOf(def("swans"));
-        PE.princess.position.set(home.x, PE.groundH ? PE.groundH(home.x, home.z) : 0, home.z);
-        const parked = PE.scene.getObjectByName("care-swan-boat");
-        if (parked && parked.userData.home) {
-          const h = parked.userData.home;
-          parked.position.set(h.x, h.y, h.z);
-        }
+      const before = coins();
+      if (play.boat) {
+        if (!nearDock()) return { ok: true, score: before, boating: true, far: true };
+        leaveBoat();
+        return { ok: true, score: coins(), boating: false };
       }
-      return { ok: true, score: coins(), boating: !!play.boat };
+      boardBoat();
+      return { ok: true, score: coins(), boating: true };
     }
     if (id === "stage") {
       play.dance = (play.dance || 0) + 1;
@@ -802,6 +831,174 @@
     return { ok: true, right, explain: pending.q.explain, score: coins() };
   }
 
+  function angDiff(a, b) {
+    let d = a - b;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    return d;
+  }
+  function dockAngle() {
+    const s = spotOf(def("swans"));
+    return Math.atan2(s.z - MOAT.z, s.x - MOAT.x);
+  }
+  function nearDock() {
+    if (!play.boat) {
+      const s = spotOf(def("swans"));
+      return Math.hypot(PE.princess.position.x - s.x, PE.princess.position.z - s.z) < 3.6;
+    }
+    return Math.abs(angDiff(play.boat.a, dockAngle())) < 0.42;
+  }
+  function onBridgeDeck() {
+    const p = PE.princess.position;
+    return !play.boat && Math.abs(p.x) < 1.8 && p.z > 6.2 && p.z < 12.4;
+  }
+  function chime(freq) {
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      if (!chime.ctx) chime.ctx = new Ctx();
+      const ctx = chime.ctx;
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.type = "sine";
+      o.frequency.value = freq || 620;
+      g.gain.setValueAtTime(0.0001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.035, ctx.currentTime + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.4);
+      o.connect(g);
+      g.connect(ctx.destination);
+      o.start();
+      o.stop(ctx.currentTime + 0.42);
+    } catch (err) { /* no audio */ }
+  }
+  function readDir() {
+    if (play.padDir != null) return play.padDir;
+    let x = 0, y = 0;
+    const knob = document.getElementById("joy-knob");
+    if (knob && knob.style.transform) {
+      const m = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(knob.style.transform);
+      if (m) {
+        x = +m[1]; y = +m[2];
+        const h = Math.hypot(x, y) || 1;
+        if (h > 8) { x /= h; y /= h; } else { x = 0; y = 0; }
+      }
+    }
+    if (keys.KeyW || keys.ArrowUp) y -= 1;
+    if (keys.KeyZ || keys.ArrowDown) y += 1;
+    if (keys.KeyA || keys.ArrowLeft) x -= 1;
+    if (keys.KeyS || keys.ArrowRight) x += 1;
+    let dir = 0;
+    if (y < -0.25 || x > 0.25) dir += 1;
+    if (y > 0.25 || x < -0.25) dir -= 1;
+    return dir;
+  }
+  function dressWake(boat, speed, t) {
+    if (!boat) return;
+    boat.children.forEach((c) => {
+      if (c.name !== "care-swan-wake") return;
+      const i = c.userData.i || 0;
+      c.position.set(Math.sin(t * 3 + i) * 0.08, 0.06, -0.85 - i * 0.42);
+      const s = speed > 0 ? 0.7 + i * 0.25 : 0.2;
+      c.scale.setScalar(s);
+      if (c.material) c.material.opacity = speed > 0 ? 0.45 - i * 0.1 : 0.12;
+    });
+  }
+  function placeBoat() {
+    const a = play.boat.a;
+    const facing = play.boat.facing || 1;
+    const bob = Math.sin(performance.now() / 1000 * 1.7) * 0.06;
+    const sway = Math.sin(performance.now() / 1000 * 1.1) * 0.05;
+    const x = MOAT.x + Math.cos(a) * MOAT.mid;
+    const z = MOAT.z + Math.sin(a) * MOAT.mid;
+    PE.princess.position.set(x, 0.55 + bob, z);
+    PE.princess.rotation.y = Math.atan2(-Math.sin(a) * facing, Math.cos(a) * facing);
+    const boat = PE.scene.getObjectByName("care-swan-boat");
+    if (boat && boat.parent) {
+      const local = boat.parent.worldToLocal(new THREE.Vector3(x, 0.04 + bob, z));
+      boat.position.copy(local);
+      const aheadX = x - Math.sin(a) * facing;
+      const aheadZ = z + Math.cos(a) * facing;
+      const yaw = Math.atan2(aheadX - x, aheadZ - z);
+      boat.rotation.y = yaw - boat.parent.rotation.y;
+      boat.rotation.z = sway;
+      dressWake(boat, play.boat.speed || 0, performance.now() / 1000);
+    }
+  }
+  function boardBoat() {
+    const a = dockAngle();
+    play.boat = { a, facing: 1, speed: 0 };
+    placeBoat();
+  }
+  function leaveBoat() {
+    play.boat = null;
+    window.__swanRaise = false;
+    const home = spotOf(def("swans"));
+    PE.princess.position.set(home.x, PE.groundH ? PE.groundH(home.x, home.z) : 0, home.z);
+    const parked = PE.scene.getObjectByName("care-swan-boat");
+    if (parked && parked.userData.home) {
+      const h = parked.userData.home;
+      parked.position.set(h.x, h.y, h.z);
+      parked.rotation.y = h.ry || 0;
+      parked.rotation.z = 0;
+    }
+    if (play.gateWasDown && PE.gate && !PE.gate.isDown()) PE.gate.open();
+  }
+  function steerBoat(dt) {
+    if (!play.boat) return;
+    const dir = readDir();
+    if (dir) play.boat.facing = dir > 0 ? 1 : -1;
+    const speed = dir ? Math.min(1, Math.abs(dir)) : 0;
+    play.boat.speed = speed;
+    play.boat.a += (play.boat.facing || 1) * speed * 0.55 * dt;
+    placeBoat();
+  }
+  function bridgeTick() {
+    const gate = PE.gate;
+    if (!gate) return;
+    if (!play.boat || onBridgeDeck()) {
+      window.__swanRaise = false;
+      if (gate.isDown()) play.gateWasDown = true;
+      if (play.gateWasDown && !gate.isDown() && !onBridgeDeck()) gate.open();
+      return;
+    }
+    const gap = Math.abs(angDiff(play.boat.a, Math.PI / 2));
+    if (gap < 0.48) {
+      if ((gate.isDown() || play.lifting) && play.gateWasDown !== false) {
+        if (!play.lifting) { play.lifting = true; play.gateWasDown = true; chime(520); }
+        window.__swanRaise = true;
+      }
+    } else if (gap > 0.78 && play.lifting) {
+      play.lifting = false;
+      window.__swanRaise = false;
+      if (play.gateWasDown) gate.open();
+      chime(740);
+    }
+  }
+  function hookGate() {
+    const gate = PE.gate;
+    if (!gate || gate._v45boat || !gate.step) return;
+    const orig = gate.step.bind(gate);
+    gate.step = function (dt, elapsed, dt2) {
+      orig(dt, elapsed, dt2);
+      if (play.boat) steerBoat(typeof dt === "number" ? dt : 0.016);
+      bridgeTick();
+      if (play.boat) paddleCam();
+    };
+    gate._v45boat = 1;
+  }
+  function paddleCam() {
+    const a = play.boat.a;
+    const facing = play.boat.facing || 1;
+    const narrow = (window.innerWidth || 1280) < 700;
+    const back = narrow ? 10 : 8.6;
+    const lift = narrow ? 5.6 : 4.4;
+    const side = narrow ? 2.6 : 3.6;
+    const ox = Math.cos(a), oz = Math.sin(a);
+    const tx = -Math.sin(a), tz = Math.cos(a);
+    const px = PE.princess.position.x, pz = PE.princess.position.z;
+    PE.camera.position.set(px + ox * back - tx * facing * side, lift, pz + oz * back - tz * facing * side);
+    PE.camera.lookAt(px - tx * facing * 1.4, 1.35, pz - tz * facing * 1.4);
+  }
   function frame(dt) {
     dt = Math.max(0, Math.min(0.05, dt || 0.016));
     if (MAT.glow) MAT.glow.emissiveIntensity = 0.65 + Math.sin(performance.now() / 400) * 0.2;
@@ -825,23 +1022,12 @@
     const t = performance.now() / 1000;
     const bob = Math.sin(t * 1.7) * 0.06;
     const sway = Math.sin(t * 1.1) * 0.06;
-    if (play.boat) {
-      play.boat.t += dt;
-      play.boat.a += dt * 0.35;
-      const x = MOAT.x + Math.cos(play.boat.a) * MOAT.mid;
-      const z = MOAT.z + Math.sin(play.boat.a) * MOAT.mid;
-      PE.princess.position.set(x, 0.62, z);
-      if (boat && boat.parent) {
-        const local = boat.parent.worldToLocal(new THREE.Vector3(x, 0.2 + bob, z));
-        boat.position.copy(local);
-        boat.rotation.y = -play.boat.a;
-        boat.rotation.z = sway * 0.4;
-      }
-    } else if (boat && boat.userData.home) {
+    if (!play.boat && boat && boat.userData.home) {
       const h = boat.userData.home;
       boat.position.set(h.x + Math.sin(t * 0.8) * 0.04, h.y + bob, h.z);
       boat.rotation.y = (h.ry || 0) + sway;
       boat.rotation.z = sway * 0.45;
+      dressWake(boat, 0, t);
     }
     const ripple = boat && boat.getObjectByName("care-swan-ripple");
     if (ripple) {
@@ -1036,8 +1222,16 @@
     if (!document.getElementById("care-prompt")) {
       const c = document.createElement("button");
       c.id = "care-prompt";
-      c.onclick = () => { if (nearId) act(nearId); renderNear(); };
+      c.onclick = () => { if (play.boat) { if (nearDock()) leaveBoat(); } else if (nearId) act(nearId); renderNear(); };
       document.body.appendChild(c);
+    }
+    if (!document.getElementById("swan-exit")) {
+      const b = document.createElement("button");
+      b.id = "swan-exit";
+      b.textContent = "Exit";
+      b.style.cssText = "display:none;position:fixed;right:24px;bottom:24px;z-index:18;background:#fff;border:4px solid #7ec8ea;border-radius:18px;padding:10px 16px;font-weight:bold;font-size:18px;color:#2a1248;cursor:pointer";
+      b.onclick = () => { if (play.boat && nearDock()) { leaveBoat(); renderNear(); } };
+      document.body.appendChild(b);
     }
     const settings = document.getElementById("settings");
     if (settings && !document.getElementById("grown-open")) {
@@ -1297,6 +1491,16 @@
     const main = document.getElementById("prompt");
     if (!btn) return;
     const mainOn = main && !main.classList.contains("hidden");
+    const exit = document.getElementById("swan-exit");
+    if (play.boat) {
+      const here = nearDock();
+      if (exit) exit.style.display = here ? "block" : "none";
+      if (!here || mainOn) { btn.style.display = "none"; return; }
+      btn.style.display = "block";
+      btn.innerHTML = "<b>Press E to step off the swan boat</b>";
+      return;
+    }
+    if (exit) exit.style.display = "none";
     if (!nearId || mainOn || (PE.v3 && PE.v3.castle && PE.v3.castle.inCastle && nearId !== "stage")) {
       btn.style.display = "none";
       return;
@@ -1380,13 +1584,21 @@
     };
     castle._v45hook = 1;
   }
+  const keys = {};
   window.addEventListener("keydown", (ev) => {
+    keys[ev.code] = true;
     if (ev.key !== "e" && ev.key !== "E") return;
+    if (play.boat) {
+      if (nearDock()) leaveBoat();
+      renderNear();
+      return;
+    }
     const btn = document.getElementById("care-prompt");
     if (!nearId || !btn || btn.style.display === "none") return;
     act(nearId);
     renderNear();
   });
+  window.addEventListener("keyup", (ev) => { keys[ev.code] = false; });
   let last = performance.now();
   function loop(now) {
     const dt = (now - last) / 1000;
@@ -1407,7 +1619,9 @@
   }
 
   migrateLayout();
+  migrateMoat();
   hookSwanLook();
+  hookGate();
   hookStageCam();
   lawn();
   restore();
@@ -1418,7 +1632,16 @@
   PE.care = {
     DEFS, own, ask, commit, act, answer: answerCare, coins, frame,
     spot: (id) => { const d = def(id); return d ? spotOf(d) : null; },
-    built: (id) => !!PE.scene.getObjectByName("care-" + id)
+    built: (id) => !!PE.scene.getObjectByName("care-" + id),
+    moat: () => ({ inner: MOAT.inner, outer: MOAT.outer, mid: MOAT.mid, width: +(MOAT.outer - MOAT.inner).toFixed(2) }),
+    boat: {
+      on: () => !!play.boat,
+      angle: () => play.boat ? play.boat.a : null,
+      setAngle: (a) => { if (!play.boat) return; play.boat.a = a; placeBoat(); },
+      step: (dt, dir) => { play.padDir = dir || 0; if (play.boat) { steerBoat(dt || 0.016); paddleCam(); } bridgeTick(); play.padDir = null; },
+      nearDock: () => nearDock(),
+      radius: () => Math.hypot(PE.princess.position.x - MOAT.x, PE.princess.position.z - MOAT.z)
+    }
   };
   PE.quest = { CHAPTERS, answer: questAnswer, here: (id) => { const ch = CHAPTERS.find((c) => c.id === id); return ch ? chapterHere(ch) : false; } };
   PE.review = { current: reviewCurrent, answer: reviewAnswer, week: weekId };
