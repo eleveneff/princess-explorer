@@ -95,7 +95,7 @@ check("the relocated save is on land", stillIn === null, JSON.stringify(report.p
 const scenery = await page.evaluate(() => window.PrincessExplorer.stream.audit());
 check("no scenery sits in the stream", scenery.hits === 0, JSON.stringify(scenery));
 const horizon = await page.evaluate(() => window.PrincessExplorer.stream.horizon());
-check("the brook fades out to the mountains and the horizon", horizon && horizon.downR > 170 && horizon.upR > 140 && horizon.downFade < 0.02 && horizon.upFade < 0.02, JSON.stringify(horizon));
+check("the downstream brook fades into the fog and the upstream stops on the hillside", horizon && horizon.downR > 170 && horizon.downFade < 0.02 && horizon.upR > 60 && horizon.upR < 120, JSON.stringify(horizon));
 await page.reload({ waitUntil: "networkidle0" });
 await page.waitForFunction(() => window.PrincessExplorer && window.PrincessExplorer.stream);
 const again = await page.evaluate(() => window.PrincessExplorer.state().pos);
