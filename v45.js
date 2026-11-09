@@ -1,4 +1,4 @@
-/* Princess Explorer v4.5 — quests, castle care, review, grown-up page.
+/* Princess Explorer v4.6 — a mountain stream joins the moat. v4.5 quests and castle care stay.
    Loaded after the game. Does not change coin prices. */
 (function () {
   const PE = window.PrincessExplorer;
@@ -250,6 +250,254 @@
   const SPH = new THREE.SphereGeometry(1, 10, 8);
   const CONE = new THREE.ConeGeometry(1, 1, 10);
 
+  const UP = [[-18, -35], [-17.6, -29.2], [-17.8, -23.2], [-18, -19], [-16.6, -15.6], [-13.4, -12.2], [-8.68, -9.68]];
+  const DOWN = [[10.06, 6.05], [14.2, 5.4], [18.2, 10.5], [24.2, 16.8], [22.4, 24.2], [14.5, 31.2], [9.2, 36.4]];
+  const BRIDGES = [
+    { x: -18, z: -19, name: "North Lawn Bridge" },
+    { x: 14.2, z: 5.4, name: "Lantern Bridge", lantern: true },
+    { x: 18.2, z: 10.5, name: "Garden Path Bridge" },
+    { x: 22.4, z: 24.2, name: "Meadow Bend Bridge" }
+  ];
+  const SPLASH = { x: -16.2, z: -21.6, r: 2.05 };
+  const stream = { samples: [], bridges: BRIDGES, inlet: { x: UP[UP.length - 1][0], z: UP[UP.length - 1][1] }, outlet: { x: DOWN[0][0], z: DOWN[0][1] }, source: { x: UP[0][0], z: UP[0][1] }, splash: "idle" };
+  function curveOf(pts) {
+    return new THREE.CatmullRomCurve3(pts.map(([x, z]) => new THREE.Vector3(x, 0, z)), false, "catmullrom", 0.35);
+  }
+  function sampleCurve(curve, n) {
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const t = i / (n - 1);
+      const p = curve.getPoint(t);
+      const tan = curve.getTangent(t);
+      out.push({ x: p.x, z: p.z, nx: -tan.z, nz: tan.x, t });
+    }
+    return out;
+  }
+  function groundAt(x, z) { return PE.groundH ? PE.groundH(x, z) : 0; }
+  function ribbonMesh(samples, half, lift, mat, tiles) {
+    const n = samples.length;
+    const pos = new Float32Array(n * 6);
+    const uv = new Float32Array(n * 4);
+    const idx = [];
+    samples.forEach((s, i) => {
+      const a = i * 2, b = a + 1;
+      const yL = groundAt(s.x + s.nx * half, s.z + s.nz * half) + lift;
+      const yR = groundAt(s.x - s.nx * half, s.z - s.nz * half) + lift;
+      pos[a * 3] = s.x + s.nx * half; pos[a * 3 + 1] = yL; pos[a * 3 + 2] = s.z + s.nz * half;
+      pos[b * 3] = s.x - s.nx * half; pos[b * 3 + 1] = yR; pos[b * 3 + 2] = s.z - s.nz * half;
+      uv[a * 2] = 0; uv[a * 2 + 1] = s.t * tiles;
+      uv[b * 2] = 1; uv[b * 2 + 1] = s.t * tiles;
+      if (i) {
+        const k = (i - 1) * 2;
+        idx.push(k, k + 1, a, k + 1, b, a);
+      }
+    });
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    return new THREE.Mesh(geo, mat);
+  }
+  function flowTexture() {
+    const c = document.createElement("canvas");
+    c.width = 64; c.height = 256;
+    const g = c.getContext("2d");
+    g.fillStyle = "#7fd4f2";
+    g.fillRect(0, 0, 64, 256);
+    g.strokeStyle = "rgba(255,255,255,.7)";
+    g.lineWidth = 2;
+    for (let i = 0; i < 16; i++) {
+      g.beginPath();
+      g.moveTo(8, i * 16);
+      g.quadraticCurveTo(32, i * 16 + 10, 56, i * 16 + 4);
+      g.stroke();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+  function inDeep(x, z) {
+    for (let i = 0; i < stream.samples.length; i++) {
+      const s = stream.samples[i];
+      if (Math.hypot(x - s.x, z - s.z) < 1.05) {
+        const onBridge = BRIDGES.some((b) => Math.hypot(x - b.x, z - b.z) < 1.7);
+        const shallow = Math.hypot(x - SPLASH.x, z - SPLASH.z) < SPLASH.r;
+        if (!onBridge && !shallow) return s;
+      }
+    }
+    return null;
+  }
+  function footbridge(b, yaw) {
+    const g = new THREE.Group();
+    g.position.set(b.x, 0, b.z);
+    g.rotation.y = yaw;
+    g.name = "stream-bridge";
+    for (let i = 0; i < 5; i++) g.add(mesh(BOX, MAT.wood, 0, 0.28, -1.3 + i * 0.65, 1.55, 0.1, 0.5));
+    g.add(mesh(BOX, MAT.gold, 0, 0.36, 0, 1.62, 0.04, 3.2));
+    [[-0.62, -1.45], [0.62, -1.45], [-0.62, 1.45], [0.62, 1.45]].forEach(([x, z]) => {
+      g.add(mesh(CYL, MAT.wood, x, 0.48, z, 0.06, 0.7, 0.06));
+    });
+    [-0.62, 0.62].forEach((x) => g.add(mesh(BOX, MAT.wood, x, 0.72, 0, 0.06, 0.06, 2.9)));
+    g.add(mesh(CYL, MAT.stone, -0.85, 0.12, -1.5, 0.22, 0.1, 0.22));
+    g.add(mesh(SPH, MAT.petal, -0.85, 0.28, -1.5, 0.12));
+    g.add(mesh(CYL, MAT.stone, 0.85, 0.12, 1.5, 0.22, 0.1, 0.22));
+    g.add(mesh(SPH, MAT.leaf, 0.85, 0.28, 1.5, 0.12));
+    if (b.lantern) {
+      g.add(mesh(CYL, MAT.gold, 0.62, 1.05, 1.45, 0.04, 0.45, 0.04));
+      g.add(mesh(SPH, MAT.glow, 0.62, 1.32, 1.45, 0.12));
+    }
+    return g;
+  }
+  function buildStream() {
+    if (PE.scene.getObjectByName("v46-stream")) return;
+    mats();
+    const root = new THREE.Group();
+    root.name = "v46-stream";
+    const map = flowTexture();
+    MAT.flow = new THREE.MeshLambertMaterial({ map, color: "#b7f4ff", emissive: "#7ec8e8", emissiveIntensity: 0.35, transparent: true, opacity: 0.92 });
+    MAT.bank = new THREE.MeshLambertMaterial({ color: "#d9c4a0" });
+    MAT.reed = new THREE.MeshLambertMaterial({ color: "#6fbf73" });
+    MAT.lily = new THREE.MeshLambertMaterial({ color: "#b7e38a" });
+    stream.flow = MAT.flow;
+    const up = sampleCurve(curveOf(UP), 48);
+    const down = sampleCurve(curveOf(DOWN), 56);
+    stream.samples = up.concat(down);
+    [up, down].forEach((samples) => {
+      root.add(ribbonMesh(samples, 2.05, 0.16, MAT.bank, 1));
+      const water = ribbonMesh(samples, 1.45, 0.28, MAT.flow, 6);
+      water.name = "stream-water";
+      water.renderOrder = 3;
+      root.add(water);
+    });
+    const pebbleGeo = new THREE.SphereGeometry(0.12, 6, 5);
+    const pebbles = [];
+    const reeds = [];
+    const lilies = [];
+    stream.samples.forEach((s, i) => {
+      if (i % 3 === 0) {
+        pebbles.push([s.x + s.nx * 1.55, groundAt(s.x, s.z) + 0.08, s.z + s.nz * 1.55]);
+        pebbles.push([s.x - s.nx * 1.55, groundAt(s.x, s.z) + 0.08, s.z - s.nz * 1.55]);
+      }
+      if (i % 5 === 0) reeds.push([s.x + s.nx * 1.7, groundAt(s.x, s.z) + 0.4, s.z + s.nz * 1.7]);
+      if (i % 7 === 2) lilies.push([s.x + s.nx * 0.4, groundAt(s.x, s.z) + 0.16, s.z + s.nz * 0.4]);
+    });
+    const pebbleMesh = new THREE.InstancedMesh(pebbleGeo, MAT.stone, pebbles.length);
+    const dummy = new THREE.Object3D();
+    pebbles.forEach((p, i) => { dummy.position.set(p[0], p[1], p[2]); dummy.scale.setScalar(0.7 + (i % 3) * 0.25); dummy.updateMatrix(); pebbleMesh.setMatrixAt(i, dummy.matrix); });
+    root.add(pebbleMesh);
+    const reedMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.03, 0.04, 0.7, 5), MAT.reed, reeds.length);
+    reeds.forEach((p, i) => { dummy.position.set(p[0], p[1], p[2]); dummy.rotation.z = (i % 2 ? 0.2 : -0.15); dummy.updateMatrix(); reedMesh.setMatrixAt(i, dummy.matrix); });
+    root.add(reedMesh);
+    const lilyMesh = new THREE.InstancedMesh(new THREE.CircleGeometry(0.28, 8), MAT.lily, lilies.length);
+    lilies.forEach((p, i) => { dummy.position.set(p[0], p[1], p[2]); dummy.rotation.x = -Math.PI / 2; dummy.updateMatrix(); lilyMesh.setMatrixAt(i, dummy.matrix); });
+    root.add(lilyMesh);
+    const falls = new THREE.Group();
+    falls.position.set(UP[0][0], groundAt(UP[0][0], UP[0][1]), UP[0][1]);
+    falls.add(mesh(SPH, MAT.stone, -1.3, 1.6, -0.2, 1.4));
+    falls.add(mesh(SPH, MAT.stone, 1.3, 1.3, 0.1, 1.2));
+    falls.add(mesh(SPH, MAT.stone, 0.1, 2.6, -0.9, 1.6));
+    const sheet = mesh(BOX, MAT.flow, 0, 1.7, 0.15, 1.6, 3.4, 0.28);
+    sheet.name = "stream-fall";
+    falls.add(sheet);
+    const plunge = new THREE.Mesh(new THREE.CircleGeometry(2.1, 20), MAT.flow);
+    plunge.rotation.x = -Math.PI / 2;
+    plunge.position.y = 0.17;
+    falls.add(plunge);
+    root.add(falls);
+    BRIDGES.forEach((b) => {
+      let best = stream.samples[0], d = 1e9;
+      stream.samples.forEach((s) => { const dd = Math.hypot(s.x - b.x, s.z - b.z); if (dd < d) { d = dd; best = s; } });
+      b.x = best.x; b.z = best.z;
+      const yaw = Math.atan2(best.nx, best.nz);
+      const bridge = footbridge(b, yaw);
+      bridge.position.y = groundAt(b.x, b.z);
+      root.add(bridge);
+    });
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(SPLASH.r, 20), MAT.flow);
+    pool.rotation.x = -Math.PI / 2;
+    pool.position.set(SPLASH.x, groundAt(SPLASH.x, SPLASH.z) + 0.15, SPLASH.z);
+    root.add(pool);
+    [[-0.8, -0.4], [0.7, 0.5], [-0.2, 0.9], [0.9, -0.7]].forEach(([x, z], i) => {
+      root.add(mesh(CYL, MAT.stone, SPLASH.x + x, groundAt(SPLASH.x, SPLASH.z) + 0.1, SPLASH.z + z, 0.28, 0.08, 0.28));
+    });
+    const drops = new THREE.Group();
+    drops.name = "stream-drops";
+    for (let i = 0; i < 12; i++) drops.add(mesh(SPH, MAT.white, 0, -2, 0, 0.13));
+    root.add(drops);
+    stream.drops = drops;
+    PE.scene.add(root);
+    stream.samples.forEach((s) => {
+      if (BRIDGES.some((b) => Math.hypot(s.x - b.x, s.z - b.z) < 1.75)) return;
+      if (Math.hypot(s.x - SPLASH.x, s.z - SPLASH.z) < SPLASH.r + 0.2) return;
+      if (PE.obstacles) PE.obstacles.push({ x: s.x, z: s.z, r: 0.9 });
+    });
+  }
+  function migrateStream() {
+    buildStream();
+    const s = PE.state();
+    const v = bag();
+    if (v.stream === 1) return;
+    const pos = s.pos;
+    if (pos && Number.isFinite(+pos.x) && Number.isFinite(+pos.z)) {
+      const hit = inDeep(+pos.x, +pos.z);
+      if (hit) {
+        const nx = +(hit.x + hit.nx * 2.3).toFixed(2);
+        const nz = +(hit.z + hit.nz * 2.3).toFixed(2);
+        s.pos = { x: nx, z: nz };
+        if (PE.princess) {
+          PE.princess.position.x = nx;
+          PE.princess.position.z = nz;
+          if (PE.groundH) PE.princess.position.y = PE.groundH(nx, nz);
+        }
+      }
+    }
+    v.stream = 1;
+    persist();
+  }
+  const splash = { phase: "idle", t: 0, cool: 0 };
+  function splashTick(dt) {
+    const dog = PE.scene.getObjectByName("v34-biscuit");
+    splash.cool = Math.max(0, splash.cool - dt);
+    const p = PE.princess.position;
+    const near = !play.boat && Math.hypot(p.x - SPLASH.x, p.z - SPLASH.z) < 4.4;
+    if (splash.phase === "idle" && near && splash.cool <= 0) {
+      splash.phase = "run";
+      splash.t = 0;
+      splash.from = dog ? { x: dog.position.x, z: dog.position.z } : { x: p.x, z: p.z };
+    }
+    if (!dog || splash.phase === "idle") { stream.splash = splash.phase; return; }
+    splash.t += dt;
+    const hop = Math.abs(Math.sin(splash.t * 10)) * 0.35;
+    if (splash.phase === "run") {
+      const k = Math.min(1, splash.t / 0.7);
+      dog.position.x = splash.from.x + (SPLASH.x - splash.from.x) * k;
+      dog.position.z = splash.from.z + (SPLASH.z - splash.from.z) * k;
+      dog.position.y = groundAt(dog.position.x, dog.position.z) + hop * 0.4;
+      dog.rotation.y = Math.atan2(SPLASH.x - dog.position.x, SPLASH.z - dog.position.z);
+      if (k >= 1) { splash.phase = "play"; splash.t = 0; }
+    } else if (splash.phase === "play") {
+      dog.position.set(SPLASH.x, groundAt(SPLASH.x, SPLASH.z) + hop, SPLASH.z);
+      if (dog.userData.tail) dog.userData.tail.rotation.z = Math.sin(splash.t * 14) * 0.6;
+      stream.drops.children.forEach((drop, i) => {
+        const a = splash.t * 6 + i;
+        drop.position.set(SPLASH.x + Math.cos(a) * 0.8, groundAt(SPLASH.x, SPLASH.z) + 0.3 + (splash.t * 3 + i * 0.2) % 1.2, SPLASH.z + Math.sin(a) * 0.8);
+      });
+      if (splash.t > 1.3) { splash.phase = "shake"; splash.t = 0; }
+    } else if (splash.phase === "shake") {
+      dog.position.set(SPLASH.x, groundAt(SPLASH.x, SPLASH.z), SPLASH.z);
+      dog.rotation.z = Math.sin(splash.t * 22) * 0.25;
+      if (dog.userData.tail) dog.userData.tail.rotation.z = Math.sin(splash.t * 16) * 0.8;
+      if (splash.t > 0.7) {
+        dog.rotation.z = 0;
+        splash.phase = "idle";
+        splash.cool = 8;
+        stream.drops.children.forEach((drop) => drop.position.set(0, -3, 0));
+      }
+    }
+    stream.splash = splash.phase;
+  }
   function lawn() {
     if (PE.scene.getObjectByName("v45-lawn")) return;
     mats();
@@ -988,6 +1236,7 @@
       orig(dt, elapsed, dt2);
       if (play.boat) steerBoat(typeof dt === "number" ? dt : 0.016);
       bridgeTick();
+      splashTick(typeof dt === "number" ? dt : 0.016);
       if (play.boat) paddleCam();
     };
     gate._v45boat = 1;
@@ -1008,6 +1257,7 @@
   function frame(dt) {
     dt = Math.max(0, Math.min(0.05, dt || 0.016));
     if (MAT.glow) MAT.glow.emissiveIntensity = 0.65 + Math.sin(performance.now() / 400) * 0.2;
+    if (MAT.flow && MAT.flow.map) MAT.flow.map.offset.y -= dt * 0.35;
     if (play.ride) {
       play.ride.t += dt;
       const a = play.ride.a + play.ride.t * 0.55;
@@ -1626,6 +1876,7 @@
 
   migrateLayout();
   migrateMoat();
+  migrateStream();
   hookSwanLook();
   hookGate();
   hookStageCam();
@@ -1653,4 +1904,15 @@
   PE.review = { current: reviewCurrent, answer: reviewAnswer, week: weekId };
   PE.grownups = { summary, note: noteAnswer };
   PE.grounds = { oldR: OLD_R, newR: NEW_R, scale: SCALE };
+  PE.stream = {
+    samples: () => stream.samples,
+    inlet: stream.inlet,
+    outlet: stream.outlet,
+    source: stream.source,
+    bridges: () => BRIDGES,
+    splash: () => stream.splash,
+    splashAt: SPLASH,
+    inDeep,
+    tick: splashTick
+  };
 })();
