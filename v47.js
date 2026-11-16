@@ -279,10 +279,12 @@ mark.learn-hit{background:#ffe08a;border-radius:6px;padding:0 3px}
 .learn-ruler{position:relative;height:28px;margin:10px 0;background:repeating-linear-gradient(90deg,#4a2c6f 0 2px,transparent 2px 18px);border-bottom:3px solid #4a2c6f}
 .learn-ruler i{position:absolute;top:-18px;font-style:normal;font-size:12px}
 #learn-card.short{max-height:46vh}
-.g-row{display:flex;align-items:flex-end;gap:14px;height:132px;margin:2px 0}
-.g-ruler{position:relative;width:72px;height:124px;border-left:3px solid #4a2c6f;flex:0 0 auto}
-.g-ruler b{position:absolute;left:8px;font-size:8px;line-height:8px;font-weight:700;transform:translateY(4px)}
-.g-stem{width:42px;border-radius:22px 22px 4px 4px;background:linear-gradient(#ffd45a 0 16%,#3cb44b 16% 100%)}
+.g-row{display:flex;align-items:flex-end;gap:10px;height:108px;margin:2px 0}
+.g-ruler{position:relative;flex:1;height:22px;border-bottom:3px solid #4a2c6f;align-self:flex-end;margin-bottom:4px}
+.g-ruler b{position:absolute;top:4px;font-size:11px;line-height:12px;font-weight:700;transform:translateX(-50%)}
+.g-stem{width:22px;border-radius:12px 12px 3px 3px;background:linear-gradient(#ffd45a 0 18%,#3cb44b 18% 100%)}
+.g-qs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.g-qs .learn-choices{grid-template-columns:1fr 1fr}
 .learn-shapes{font-size:42px;letter-spacing:10px;text-align:center}
 .learn-shapes .fold{display:inline-block;border-left:3px dashed #ff5fa2;padding-left:8px}
 .learn-story{font-size:15px;line-height:1.4;max-height:34vh;overflow:auto;background:#fff;border-radius:12px;padding:8px}
@@ -793,11 +795,11 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     const g = gardenNow();
     placeGarden(g.cm);
     const ticks = [];
-    for (let n = 0; n <= 16; n++) ticks.push(`<b style="bottom:${(n / 16) * 100}%">${n}</b>`);
-    const flowerH = Math.max(8, Math.round((g.cm / 16) * 124));
+    for (let n = 0; n <= 16; n++) ticks.push(`<b style="left:${(n / 16) * 100}%">${n}</b>`);
+    const flowerH = Math.max(12, Math.round((g.cm / 16) * 100));
     const tall = gardenChoices(g.cm, "cm");
     const grew = gardenChoices(g.grew, "cm");
-    return `<header><h2>Garden ruler</h2><button class="ghost" id="learn-exit">Exit</button></header><div class="g-row"><div class="g-ruler">${ticks.join("")}</div><div class="g-stem" style="height:${flowerH}px"></div></div><p class="learn-prompt">How tall is the sunflower?</p><div class="learn-choices">${tall.map((c, i) => `<button data-gq="${i}">${c}</button>`).join("")}</div><p class="learn-prompt">How much did it grow since Day 2?</p><div class="learn-choices">${grew.map((c, i) => `<button data-gg="${i}">${c}</button>`).join("")}</div>`;
+    return `<header><h2>Garden ruler</h2><button class="ghost" id="learn-exit">Exit</button></header><div class="g-row"><div class="g-stem" style="height:${flowerH}px"></div><div class="g-ruler">${ticks.join("")}</div></div><div class="g-qs"><div><p class="learn-prompt">How tall is the sunflower?</p><div class="learn-choices">${tall.map((c, i) => `<button data-gq="${i}">${c}</button>`).join("")}</div></div><div><p class="learn-prompt">How much did it grow since Day 2?</p><div class="learn-choices">${grew.map((c, i) => `<button data-gg="${i}">${c}</button>`).join("")}</div></div></div>`;
   }
   function gardenChoices(right, unit) {
     const opts = [right, right + 2, Math.max(0, right - 2), right + 4];

@@ -100,7 +100,17 @@ const play = await page.evaluate(() => {
     hudHidden
   };
 });
-check("garden does not state the height and asks both questions", play.gardenAsks && !play.gardenGives && play.grew === 4, JSON.stringify({ grew: play.grew, gives: play.gardenGives }));
+const gardenFit = await page.evaluate(() => {
+  window.PrincessExplorer.learn.setDate("2026-11-20");
+  window.PrincessExplorer.learn.garden.plant("2026-11-16");
+  window.PrincessExplorer.learn.play("garden");
+  const card = document.getElementById("learn-card").getBoundingClientRect();
+  const marks = [...document.querySelectorAll(".g-ruler b")].map((el) => el.textContent);
+  const buttons = [...document.querySelectorAll("[data-gg]")].map((el) => el.getBoundingClientRect());
+  const onScreen = buttons.length === 4 && buttons.every((b) => b.top >= card.top && b.bottom <= Math.min(card.bottom, window.innerHeight) + 1);
+  return { marks, onScreen };
+});
+check("garden does not state the height and asks both questions", play.gardenAsks && !play.gardenGives && play.grew === 4 && gardenFit.marks.length === 17 && gardenFit.onScreen, JSON.stringify({ grew: play.grew, gives: play.gardenGives, marks: gardenFit.marks.length, onScreen: gardenFit.onScreen }));
 check("nature creatures exist and the data question has 4 choices", play.creatures.every(Boolean) && play.nq === 4, JSON.stringify(play.creatures));
 check("art asks for corners and lines of symmetry", play.artAsks);
 check("biscuit trick asks a two-step question", play.dog);
