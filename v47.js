@@ -254,7 +254,7 @@
 #learn-card{width:min(760px,100%);max-height:min(62vh,640px);overflow:auto;background:#fffaf2;border:7px solid #ff7ac8;border-radius:28px 28px 18px 18px;padding:12px 14px 16px;color:#4a2c6f;font-family:Trebuchet MS,sans-serif;box-shadow:0 12px 0 rgba(0,0,0,.12)}
 #learn-card header{display:flex;align-items:center;justify-content:space-between;gap:8px}
 #learn-card h2{margin:0;font-size:26px}
-#learn-card button{font:800 18px/1.2 Trebuchet MS,sans-serif;border-radius:16px;border:0;background:#ff5fa2;color:#fff;padding:12px 14px;min-height:52px;cursor:pointer}
+#learn-card button{font:800 18px/1.2 Trebuchet MS,sans-serif;border-radius:16px;border:0;background:#ff5fa2;color:#fff;padding:10px 12px;min-height:46px;cursor:pointer}
 #learn-card .ghost{background:#fff;color:#8a4fe0;border:3px solid #b57bff}
 #learn-exit{min-width:88px}
 .learn-prompt{font-size:22px;font-weight:800;margin:8px 0}
@@ -272,14 +272,26 @@ mark.learn-hit{background:#ffe08a;border-radius:6px;padding:0 3px}
 .ex-one{display:inline-block;width:16px;height:16px;margin:2px;background:#ffd45a;border:3px solid #e0a000;border-radius:4px}
 #learn-pause{position:absolute;inset:0;background:rgba(255,250,242,.94);display:none;align-items:center;justify-content:center;text-align:center;border-radius:18px}
 #learn-pause.show{display:flex}
-.learn-spark{position:absolute;left:50%;top:18%;transform:translateX(-50%);background:#fff;border:4px solid #ffd45a;border-radius:16px;padding:8px 12px;font-weight:800;pointer-events:none}
+#v47-cheer{position:fixed;left:50%;top:12%;transform:translateX(-50%);z-index:80;display:none;background:#fff;border:5px solid #ffd45a;border-radius:22px;padding:10px 16px;font:800 22px Trebuchet MS,sans-serif;color:#4a2c6f;text-align:center;box-shadow:0 8px 0 rgba(0,0,0,.12);pointer-events:none;max-width:min(420px,92vw)}
+#v47-cheer.show{display:block}
+#v47-cheer .dog{font-size:42px;display:inline-block;animation:wag .4s ease-in-out 3}
+@keyframes wag{50%{transform:rotate(-12deg) translateY(-4px)}}
+.learn-ruler{position:relative;height:28px;margin:10px 0;background:repeating-linear-gradient(90deg,#4a2c6f 0 2px,transparent 2px 18px);border-bottom:3px solid #4a2c6f}
+.learn-ruler i{position:absolute;top:-18px;font-style:normal;font-size:12px}
+.learn-shapes{font-size:42px;letter-spacing:10px;text-align:center}
+.learn-shapes .fold{display:inline-block;border-left:3px dashed #ff5fa2;padding-left:8px}
+.learn-story{font-size:16px;line-height:1.35;max-height:7.2em;overflow:hidden;background:#fff;border-radius:12px;padding:8px}
 #learn-pause .box{display:flex;flex-direction:column;gap:10px;align-items:center}
 body.learn-on #hud,body.learn-on #gear,body.learn-on #zoom,body.learn-on #touch-toggle,body.learn-on #hint,body.learn-on #settings,body.learn-on #prompt,body.learn-on #act,body.learn-on #joy,body.learn-on #care-prompt,body.learn-on #quest-btn{visibility:hidden !important;pointer-events:none !important}
+body.learn-on > button{visibility:hidden !important;pointer-events:none !important}
 @media (max-width:430px) and (min-height:700px){
-  #hud{max-width:calc(100vw - 76px);max-height:168px;overflow:hidden}
-  #hud .chip{font-size:16px;padding:3px 8px;border-width:3px;border-radius:14px}
-  #hud .chip small{font-size:11px}
-  #learn-card{max-height:58vh}
+  #hud{max-width:calc(100vw - 78px)}
+  #hud .hud-row{flex-wrap:nowrap}
+  #hud .chip,#quest-btn{font-size:13px;padding:2px 6px;border-width:3px;border-radius:12px}
+  #hud .chip small{font-size:10px}
+  #badges{margin-top:2px}
+  #badges .badge{width:30px;height:30px;font-size:16px}
+  #learn-card{max-height:56vh}
   .learn-choices{grid-template-columns:1fr}
   .learn-prompt{font-size:18px}
 }
@@ -432,6 +444,13 @@ body.learn-on #hud,body.learn-on #gear,body.learn-on #zoom,body.learn-on #touch-
       if (!q) return `<header><h2>Daily Three</h2><button class="ghost" id="learn-exit">Exit</button></header><p>Done for today.</p>${pause}`;
       return head("Daily Three", `Warm-up ${daily.i + 1} of 3`) + bodyQ(q) + pause;
     }
+    if (mode === "nature") return activityNature() + pause;
+    if (mode === "garden") return activityGarden() + pause;
+    if (mode === "art") return activityArt() + pause;
+    if (mode === "sport") return activitySport() + pause;
+    if (mode === "biscuit") return activityBiscuit() + pause;
+    if (mode === "lore") return activityLore() + pause;
+    if (mode === "winter") return `<header><h2>Winter castle</h2><button class="ghost" id="learn-exit">Exit</button></header><p>${winterOn() ? "December 1 to January 6. Frost on the moat, lights on the lawn, snow on the ground." : "The winter castle waits from December 1 to January 6."}</p>${winterOn() ? `<button id="learn-wreath">Wreath challenge, 20 coins</button>` : ""}` + pause;
     if (mode === "gate" && gate) {
       const q = gate.qs[gate.i];
       const title = (PE.care.DEFS.find((d) => d.id === gate.id) || {}).name || "Build";
@@ -464,7 +483,13 @@ body.learn-on #hud,body.learn-on #gear,body.learn-on #zoom,body.learn-on #touch-
         endTutor(+b.dataset.tutor === tutor.practice.answer);
         return;
       }
-      if (b.dataset.choice != null && !pausedFrom) answer(+b.dataset.choice);
+      if (b.dataset.choice != null && !pausedFrom && (mode === "gate" || mode === "daily")) answer(+b.dataset.choice);
+      if (b.dataset.spot) { tapNature(b.dataset.spot); show(); return; }
+      if (b.dataset.shape) { addShape(b.dataset.shape); show(); return; }
+      if (b.dataset.sport) { sportPoint(b.dataset.sport); show(); return; }
+      if (b.dataset.trick) { const res = trickAnswer(+b.dataset.trick, "bow"); if (res.right) { const dog = document.getElementById("v47-dog"); if (dog) dog.textContent = "🐶 bow"; celebrate(); } return; }
+      if (b.dataset.lore) { lorePick(+b.dataset.lore); return; }
+      if (b.id === "learn-wreath") { startWreath(); return; }
     };
   }
   function openMode(next) { mode = next; pausedFrom = null; show(); }
@@ -550,6 +575,13 @@ body.learn-on #hud,body.learn-on #gear,body.learn-on #zoom,body.learn-on #touch-
     const id = gate.id;
     const misses = gate.misses;
     const v = bag();
+    if (id === "wreath") {
+      v.passed.wreath = 1;
+      const bought = buyWreath();
+      closePlay();
+      gate = null;
+      return { ok: !!bought.ok, right: true, done: true, refund: 0, misses, score: coins(), price: 20 };
+    }
     v.ready[id] = 1;
     const res = PE.care.commit(id);
     let refund = 0;
@@ -665,6 +697,13 @@ body.learn-on #hud,body.learn-on #gear,body.learn-on #zoom,body.learn-on #touch-
       holdBtn.addEventListener("pointerup", stop);
       holdBtn.addEventListener("pointerleave", stop);
       settings.appendChild(holdBtn);
+      [["nature", "Nature walk"], ["garden", "Garden ruler"], ["art", "Art shapes"], ["sport", "Score"], ["biscuit", "Biscuit trick"], ["lore", "Stories"], ["winter", "Winter castle"]].forEach(([id, label]) => {
+        const b = document.createElement("button");
+        b.className = "btn small";
+        b.textContent = label;
+        b.onclick = () => openPlay(id);
+        settings.appendChild(b);
+      });
     }
   }
   function loop(now) {
@@ -689,6 +728,100 @@ body.learn-on #hud,body.learn-on #gear,body.learn-on #zoom,body.learn-on #touch-
     corgi: "Sir Biscuit wanted to learn a bow. Amara made it a word problem so the trick had a story. He had six treats. He gave two to a friend, then found three more under the chair. She did the first step, six minus two, and then the second step, four plus three. Seven treats meant seven happy wags, but the bow came before the last treat. He dipped his nose, one paw forward, and the hall clapped. The word problem was the lesson, and the bow was the prize. Amara saved the last treat for the spin they would learn next, which would need a new story with two steps of its own before any treat was given out loud."
   };
   function wordCount(text) { return String(text || "").trim().split(/\s+/).filter(Boolean).length; }
+  let loreId = "terrace";
+  function activityNature() {
+    placeNature();
+    const w = worldBag().nature;
+    const top = Object.entries(w).sort((a, b) => b[1] - a[1])[0];
+    const bars = ["frog", "fish", "flower"].map((k) => {
+      const cells = Array.from({ length: 4 }, (_, i) => `<span class="ex-cell${i < w[k] ? " on" : ""}"></span>`).join("");
+      return `<div><b>${k}</b> ${cells} ${w[k]}</div>`;
+    }).join("");
+    return `<header><h2>Nature walk</h2><button class="ghost" id="learn-exit">Exit</button></header><p>Tap a creature on the bank, then read the tally.</p><div class="learn-choices"><button data-spot="frog">Frog ${w.frog}</button><button data-spot="fish">Fish ${w.fish}</button><button data-spot="flower">Flower ${w.flower}</button></div><div class="learn-visual">${bars}</div><p class="learn-prompt">Most spots: ${top[1] ? top[0] : "none yet"}</p>`;
+  }
+  function activityGarden() {
+    const g = gardenNow();
+    placeGarden(g.cm);
+    const marks = [0, 4, 8, 12, 16].map((n) => `<i style="left:${(n / 16) * 100}%">${n}</i>`).join("");
+    return `<header><h2>Garden ruler</h2><button class="ghost" id="learn-exit">Exit</button></header><p>The sunflower is ${g.cm} cm, about ${g.inches} inches. Day ${g.days}.</p><div class="learn-ruler">${marks}<span class="ex-dot" style="left:${(g.cm / 16) * 100}%;top:6px"></span></div><p class="learn-prompt">${g.prompt}</p><div class="learn-choices">${g.choices.map((c, i) => `<button data-choice="${i}" disabled>${c}</button>`).join("")}</div>`;
+  }
+  function activityArt() {
+    const art = worldBag().art;
+    const icons = { triangle: "△", square: "□", circle: "○" };
+    const corners = art.reduce((n, s) => n + ({ triangle: 3, square: 4, circle: 0 }[s] || 0), 0);
+    const squares = art.filter((s) => s === "square").length;
+    return `<header><h2>Art shapes</h2><button class="ghost" id="learn-exit">Exit</button></header><p>Add shapes. A square has 4 sides, 4 corners, and a fold line.</p><div class="learn-shapes">${art.map((s) => s === "square" ? `<span class="fold">${icons[s]}</span>` : icons[s]).join("") || "…"}</div><div class="learn-choices"><button data-shape="triangle">Triangle</button><button data-shape="square">Square</button><button data-shape="circle">Circle</button></div><p>${corners} corners. Squares in the picture: ${squares}. The dashed line is a line of symmetry.</p>`;
+  }
+  function activitySport() {
+    const w = worldBag();
+    return `<header><h2>Keep score</h2><button class="ghost" id="learn-exit">Exit</button></header><p>Each point adds 5. Compare the numbers.</p><div class="learn-choices"><button data-sport="tennis">Tennis ${w.tennis}</button><button data-sport="fence">Fencing ${w.fence}</button></div><p class="learn-prompt">${w.tennis === w.fence ? "Tied so far." : (w.tennis > w.fence ? "Tennis is ahead." : "Fencing is ahead.")}</p>`;
+  }
+  function activityBiscuit() {
+    const q = trickStart("bow").question;
+    const done = worldBag().tricks.bow;
+    return `<header><h2>Sir Biscuit</h2><button class="ghost" id="learn-exit">Exit</button></header><p id="v47-dog" style="font-size:48px;text-align:center">${done ? "🐶 bow" : "🐶"}</p><p class="learn-prompt">${q.prompt}</p><div class="learn-choices">${q.choices.map((c, i) => `<button data-trick="${i}">${c}</button>`).join("")}</div>`;
+  }
+  function storyPreview(text) {
+    const sentences = String(text).match(/[^.!?]+[.!?]/g) || [text];
+    let out = "";
+    sentences.forEach((s) => { if ((out + s).length < 320) out += s; });
+    return out.trim();
+  }
+  function activityLore() {
+    const story = loreFor(loreId) || loreFor("terrace");
+    return `<header><h2>${esc(story.title)}</h2><button class="ghost" id="learn-exit">Exit</button></header><div class="learn-story">${esc(storyPreview(story.text))}</div><p class="learn-prompt">${esc(story.main.prompt)}</p><div class="learn-choices">${story.main.choices.map((c, i) => `<button data-lore="${i}">${esc(c)}</button>`).join("")}</div>`;
+  }
+  function lorePick(choice) {
+    const story = loreFor(loreId);
+    const right = choice === story.main.answer;
+    record("reading", right);
+    if (!right) openTutorial({ skill: "reading", prompt: story.main.prompt, passage: story.text, choices: story.main.choices, answer: story.main.answer, explain: story.text.slice(0, 180) });
+    else { celebrate(); show(); }
+  }
+  function openPlay(name) {
+    if (name === "garden" && !worldBag().gardenDay) plantGarden(addDays(today(), -3));
+    if (name === "nature") placeNature();
+    if (name === "winter") { drawWinter(); mode = "winter"; show(); return { ok: true, winter: winterOn(), mode: "winter" }; }
+    mode = name;
+    show();
+    return { ok: true, mode: name };
+  }
+  function meshAt(name, color, x, y, z, radius) {
+    const THREE = PE.gfx43 && PE.gfx43.THREE;
+    if (!THREE || !PE.scene || PE.scene.getObjectByName(name)) return;
+    const m = new THREE.Mesh(new THREE.SphereGeometry(radius, 12, 10), new THREE.MeshLambertMaterial({ color }));
+    m.position.set(x, y, z);
+    m.name = name;
+    PE.scene.add(m);
+  }
+  function placeNature() {
+    if (!PE.stream || !PE.stream.samples || !PE.gfx43) return;
+    const samples = PE.stream.samples();
+    if (!samples.length) return;
+    [["frog", "#3cb44b", 6], ["fish", "#3d8bfd", 18], ["flower", "#ff7ac8", 30]].forEach(([kind, color, idx]) => {
+      const s = samples[Math.min(samples.length - 1, idx)];
+      const y = (PE.groundH ? PE.groundH(s.x, s.z) : 0) + 0.45;
+      meshAt("v47-" + kind, color, s.x + (s.nx || 0) * 1.4, y, s.z + (s.nz || 0) * 1.4, kind === "flower" ? 0.28 : 0.4);
+    });
+  }
+  function placeGarden(cm) {
+    if (!PE.gfx43 || !PE.scene) return;
+    const THREE = PE.gfx43.THREE;
+    let plant = PE.scene.getObjectByName("v47-plant");
+    const h = 0.7 + cm * 0.06;
+    if (!plant) {
+      plant = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 1, 8), new THREE.MeshLambertMaterial({ color: "#3cb44b" }));
+      plant.name = "v47-plant";
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), new THREE.MeshLambertMaterial({ color: "#ffd45a" }));
+      head.position.y = 0.55;
+      plant.add(head);
+      plant.position.set(14.2, 0, 9.2);
+      PE.scene.add(plant);
+    }
+    const gy = PE.groundH ? PE.groundH(14.2, 9.2) : 0;
+    plant.scale.y = h;
+    plant.position.y = gy + h * 0.5;
+  }
   function loreFor(id) {
     const text = LORE[id];
     if (!text) return null;
@@ -755,6 +888,8 @@ body.learn-on #hud,body.learn-on #gear,body.learn-on #zoom,body.learn-on #touch-
     }
     worldBag().tricks[name || "bow"] = 1;
     persist();
+    celebrate();
+    if (mode === "biscuit") show();
     return { ok: true, right: true, anim: name || "bow", score: coins() };
   }
   function winterOn(iso) {
@@ -762,6 +897,15 @@ body.learn-on #hud,body.learn-on #gear,body.learn-on #zoom,body.learn-on #touch-
     const month = +day.slice(5, 7);
     const date = +day.slice(8, 10);
     return month === 12 || (month === 1 && date <= 6);
+  }
+  function startWreath() {
+    if (!winterOn()) return { ok: false, reason: "season", score: coins() };
+    if (coins() < 20) return { ok: false, reason: "short", score: coins() };
+    const used = new Set();
+    gate = { id: "wreath", qs: [pick("patterns", "confidence", used), pick("patterns", "level", used), pick("patterns", "stretch", used)], i: 0, misses: 0, price: 20 };
+    example = null;
+    openMode("gate");
+    return { ok: true, total: 3, score: coins() };
   }
   function buyWreath() {
     if (!winterOn()) return { ok: false, reason: "season", score: coins() };
@@ -779,28 +923,71 @@ body.learn-on #hud,body.learn-on #gear,body.learn-on #zoom,body.learn-on #touch-
     if (!winterOn() || !PE.gfx43 || !PE.scene) return;
     const THREE = PE.gfx43.THREE;
     if (PE.scene.getObjectByName("v47-frost")) return;
-    const frost = new THREE.Mesh(new THREE.TorusGeometry(12.2, 0.18, 8, 40), new THREE.MeshLambertMaterial({ color: "#f4fbff" }));
+    const frost = new THREE.Mesh(new THREE.TorusGeometry(11.6, 0.55, 10, 48), new THREE.MeshLambertMaterial({ color: "#ffffff" }));
     frost.rotation.x = -Math.PI / 2;
-    frost.position.set(0, 0.42, -1);
+    frost.position.set(0, 0.7, -1);
     frost.name = "v47-frost";
     PE.scene.add(frost);
-    for (let i = 0; i < 10; i++) {
-      const a = (i / 10) * Math.PI * 2;
-      const light = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), new THREE.MeshLambertMaterial({ color: i % 2 ? "#ffd36b" : "#ff7ac8", emissive: "#ffd36b", emissiveIntensity: 0.6 }));
-      light.position.set(Math.cos(a) * 14, 1.4, -1 + Math.sin(a) * 14);
-      light.name = "v47-light";
-      PE.scene.add(light);
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      const x = Math.cos(a) * 15.2;
+      const z = -1 + Math.sin(a) * 15.2;
+      const gy = PE.groundH ? PE.groundH(x, z) : 0;
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 1.1, 6), new THREE.MeshLambertMaterial({ color: "#6b4a2a" }));
+      post.position.set(x, gy + 0.55, z);
+      post.name = "v47-light";
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), new THREE.MeshLambertMaterial({ color: i % 2 ? "#ffd36b" : "#ff5fa2", emissive: "#fff1a8", emissiveIntensity: 0.9 }));
+      bulb.position.y = 0.62;
+      post.add(bulb);
+      PE.scene.add(post);
+      const snow = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 6), new THREE.MeshLambertMaterial({ color: "#f4fbff" }));
+      snow.position.set(x * 0.55, (PE.groundH ? PE.groundH(x * 0.55, z * 0.55) : 0) + 0.12, z * 0.55);
+      snow.name = "v47-snow";
+      PE.scene.add(snow);
     }
+    try { snowRoofs(); } catch (err) { /* a mesh without bounds is skipped */ }
+  }
+  function snowRoofs() {
+    const THREE = PE.gfx43.THREE;
+    if (PE.scene.getObjectByName("v47-roof-snow")) return;
+    const box = new THREE.Box3();
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    const tops = [];
+    PE.scene.updateMatrixWorld(true);
+    PE.scene.traverse((o) => {
+      if (!o.isMesh || !o.geometry) return;
+      const col = o.material && o.material.color;
+      if (col && col.g > col.r + 0.15 && col.g > 0.35) return;
+      box.setFromObject(o);
+      box.getSize(size);
+      box.getCenter(center);
+      if (size.y < 5 || size.y > 28) return;
+      if (Math.hypot(center.x, center.z + 1) > 10) return;
+      tops.push({ x: center.x, y: box.max.y, z: center.z, w: Math.max(size.x, size.z) });
+    });
+    tops.sort((a, b) => b.y - a.y);
+    const used = [];
+    tops.forEach((t) => {
+      if (used.some((u) => Math.hypot(u.x - t.x, u.z - t.z) < 1.2)) return;
+      if (used.length > 6) return;
+      used.push(t);
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(Math.max(0.7, Math.min(2.2, t.w * 0.35)), 1.3, 8), new THREE.MeshLambertMaterial({ color: "#ffffff" }));
+      cap.position.set(t.x, t.y + 0.35, t.z);
+      cap.name = "v47-roof-snow";
+      PE.scene.add(cap);
+    });
   }
   function celebrate() {
-    const layerEl = document.getElementById("learn-layer");
-    if (layerEl) {
-      const bits = document.createElement("div");
-      bits.className = "learn-spark";
-      bits.textContent = "✨ Sir Biscuit wags!";
-      layerEl.appendChild(bits);
-      later(900, () => bits.remove());
+    let el = document.getElementById("v47-cheer");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "v47-cheer";
+      document.body.appendChild(el);
     }
+    el.innerHTML = `<div class="dog">🐶</div><div>Yes! Sir Biscuit wags!</div>`;
+    el.classList.add("show");
+    later(2200, () => el.classList.remove("show"));
     if (quiet()) return { ok: true, quiet: true };
     try {
       const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -834,7 +1021,8 @@ body.learn-on #hud,body.learn-on #gear,body.learn-on #zoom,body.learn-on #touch-
     progress,
     tick,
     advance: (ms) => tick((ms || 0) / 1000),
-    setDate: (iso) => { clockDate = iso; },
+    setDate: (iso) => { clockDate = iso; drawWinter(); },
+    play: openPlay,
     today,
     addPlay: (ms) => { bag().playMs += ms; persist(); },
     record: (skill, ok) => { record(skill, !!ok); persist(); },
@@ -866,7 +1054,7 @@ body.learn-on #hud,body.learn-on #gear,body.learn-on #zoom,body.learn-on #touch-
     art: { add: addShape },
     sport: { point: sportPoint },
     biscuit: { start: trickStart, answer: trickAnswer },
-    winter: { on: winterOn, buy: buyWreath, draw: drawWinter },
+    winter: { on: winterOn, buy: buyWreath, draw: drawWinter, start: startWreath },
     celebrate,
     ui: { open: () => !!mode, paused: () => !!pausedFrom },
     onWrong: openTutorial,
