@@ -254,7 +254,7 @@
 #learn-card{width:min(760px,100%);max-height:min(62vh,640px);overflow:auto;background:#fffaf2;border:7px solid #ff7ac8;border-radius:28px 28px 18px 18px;padding:12px 14px 16px;color:#4a2c6f;font-family:Trebuchet MS,sans-serif;box-shadow:0 12px 0 rgba(0,0,0,.12)}
 #learn-card header{display:flex;align-items:center;justify-content:space-between;gap:8px}
 #learn-card h2{margin:0;font-size:26px}
-#learn-card button{font:800 18px/1.2 Trebuchet MS,sans-serif;border-radius:16px;border:0;background:#ff5fa2;color:#fff;padding:10px 12px;min-height:46px;cursor:pointer}
+#learn-card button{font:800 17px/1.2 Trebuchet MS,sans-serif;border-radius:14px;border:0;background:#ff5fa2;color:#fff;padding:8px 10px;min-height:40px;cursor:pointer}
 #learn-card .ghost{background:#fff;color:#8a4fe0;border:3px solid #b57bff}
 #learn-exit{min-width:88px}
 .learn-prompt{font-size:22px;font-weight:800;margin:8px 0}
@@ -278,9 +278,14 @@ mark.learn-hit{background:#ffe08a;border-radius:6px;padding:0 3px}
 @keyframes wag{50%{transform:rotate(-12deg) translateY(-4px)}}
 .learn-ruler{position:relative;height:28px;margin:10px 0;background:repeating-linear-gradient(90deg,#4a2c6f 0 2px,transparent 2px 18px);border-bottom:3px solid #4a2c6f}
 .learn-ruler i{position:absolute;top:-18px;font-style:normal;font-size:12px}
+#learn-card.short{max-height:46vh}
+.g-row{display:flex;align-items:flex-end;gap:14px;height:132px;margin:2px 0}
+.g-ruler{position:relative;width:72px;height:124px;border-left:3px solid #4a2c6f;flex:0 0 auto}
+.g-ruler b{position:absolute;left:8px;font-size:8px;line-height:8px;font-weight:700;transform:translateY(4px)}
+.g-stem{width:42px;border-radius:22px 22px 4px 4px;background:linear-gradient(#ffd45a 0 16%,#3cb44b 16% 100%)}
 .learn-shapes{font-size:42px;letter-spacing:10px;text-align:center}
 .learn-shapes .fold{display:inline-block;border-left:3px dashed #ff5fa2;padding-left:8px}
-.learn-story{font-size:16px;line-height:1.35;max-height:7.2em;overflow:hidden;background:#fff;border-radius:12px;padding:8px}
+.learn-story{font-size:15px;line-height:1.4;max-height:34vh;overflow:auto;background:#fff;border-radius:12px;padding:8px}
 #learn-pause .box{display:flex;flex-direction:column;gap:10px;align-items:center}
 body.learn-on #hud,body.learn-on #gear,body.learn-on #zoom,body.learn-on #touch-toggle,body.learn-on #hint,body.learn-on #settings,body.learn-on #prompt,body.learn-on #act,body.learn-on #joy,body.learn-on #care-prompt,body.learn-on #quest-btn{visibility:hidden !important;pointer-events:none !important}
 body.learn-on > button{visibility:hidden !important;pointer-events:none !important}
@@ -436,7 +441,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     if (mode === "parent") {
       const info = progress();
       const rows = info.rows.length ? info.rows.map((r) => `<div class="v-row"><b>${SKILL_NAME[r.skill] || r.skill}</b> — ${r.acc}% of ${r.n}</div>`).join("") : "<p>No answers yet.</p>";
-      const weak = info.weak.length ? info.weak.map((r, i) => `<div>${i + 1}. ${SKILL_NAME[r.skill] || r.skill} (${r.acc}%)</div>`).join("") : "<p>Not enough answers yet.</p>";
+      const weak = info.weak.length ? info.weak.map((r, i) => `<div>${i + 1}. ${SKILL_NAME[r.skill] || r.skill} (${r.acc}%)</div>`).join("") : "<p>No weak spots yet.</p>";
       return `<header><h2>Progress</h2><button class="ghost" id="learn-exit">Exit</button></header><p>Time played: ${Math.round(info.playMs / 60000)} min. Daily streak: ${info.streak}.</p><p><b>Weakest skills</b></p>${weak}<p><b>Accuracy</b></p>${rows}${pause}`;
     }
     if (mode === "daily" && daily) {
@@ -470,6 +475,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
   function show() {
     const el = layer();
     el.querySelector("#learn-card").innerHTML = cardHtml();
+    el.querySelector("#learn-card").classList.toggle("short", mode === "nature");
     setPlay(!!mode);
     const card = el.querySelector("#learn-card");
     card.onclick = (e) => {
@@ -485,6 +491,35 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
       }
       if (b.dataset.choice != null && !pausedFrom && (mode === "gate" || mode === "daily")) answer(+b.dataset.choice);
       if (b.dataset.spot) { tapNature(b.dataset.spot); show(); return; }
+      if (b.dataset.nq != null) {
+        const q = natureQuestion();
+        if (+b.dataset.nq === q.answer) celebrate();
+        else openTutorial({ skill: "data", prompt: q.prompt, explain: "Subtract the fish count from the frog count.", choices: q.choices, answer: q.answer });
+        return;
+      }
+      if (b.dataset.gq != null) {
+        const g = gardenNow();
+        if (+b.dataset.gq === 0) celebrate();
+        else openTutorial({ skill: "measure", prompt: "How tall is the sunflower?", explain: "Read the ruler from 0 up to the top of the flower.", choices: gardenChoices(g.cm, "cm"), answer: 0 });
+        return;
+      }
+      if (b.dataset.gg != null) {
+        const g = gardenNow();
+        if (+b.dataset.gg === 0) celebrate();
+        else openTutorial({ skill: "measure", prompt: "How much did it grow since Day 2?", explain: "Subtract the Day 2 height from today's height.", choices: gardenChoices(g.grew, "cm"), answer: 0 });
+        return;
+      }
+      if (b.dataset.aq != null) {
+        const corners = worldBag().art.reduce((n, s) => n + ({ triangle: 3, square: 4, circle: 0 }[s] || 0), 0);
+        if (+b.dataset.aq === 0) celebrate();
+        else openTutorial({ skill: "shapes", prompt: "How many corners are in your picture?", explain: "A triangle has 3 corners and a square has 4. A circle has none.", choices: gardenChoices(corners, "corners"), answer: 0 });
+        return;
+      }
+      if (b.dataset.as != null) {
+        if (+b.dataset.as === 2) celebrate();
+        else openTutorial({ skill: "shapes", prompt: "How many lines of symmetry does a square have?", explain: "A square folds in half four ways.", choices: ["1", "2", "4", "0"], answer: 2 });
+        return;
+      }
       if (b.dataset.shape) { addShape(b.dataset.shape); show(); return; }
       if (b.dataset.sport) { sportPoint(b.dataset.sport); show(); return; }
       if (b.dataset.trick) { const res = trickAnswer(+b.dataset.trick, "bow"); if (res.right) { const dog = document.getElementById("v47-dog"); if (dog) dog.textContent = "🐶 bow"; celebrate(); } return; }
@@ -635,7 +670,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
   function progress() {
     const v = bag();
     const rows = Object.entries(v.skills).map(([skill, s]) => ({ skill, n: s.n, c: s.c, w: s.w, acc: s.n ? Math.round(100 * s.c / s.n) : 0 }));
-    const weak = rows.filter((r) => r.n).sort((a, b) => a.acc - b.acc || b.n - a.n).slice(0, 3);
+    const weak = rows.filter((r) => r.n >= 2 && r.acc < 80).sort((a, b) => a.acc - b.acc || b.n - a.n).slice(0, 3);
     return { rows, weak, playMs: v.playMs, streak: v.daily.streak || 0 };
   }
   function openParent() {
@@ -663,6 +698,15 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
         const vis = document.querySelector("#learn-card .learn-visual");
         if (vis) vis.outerHTML = visualHtml(example.visual, example.n, example.progress);
       }
+    }
+    const fall = PE.scene && PE.scene.getObjectByName && PE.scene.getObjectByName("v47-fall");
+    if (fall && fall.geometry) {
+      const arr = fall.geometry.attributes.position.array;
+      for (let i = 1; i < arr.length; i += 3) {
+        arr[i] -= step * 1.4;
+        if (arr[i] < 0.4) arr[i] = 12;
+      }
+      fall.geometry.attributes.position.needsUpdate = true;
     }
     const due = pending.filter((job) => job.at <= clockMs);
     if (due.length) {
@@ -714,43 +758,61 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
   }
 
   const LORE = {
-    terrace: "Amara wanted the terrace to smell like rain and roses. She measured each bed with a piece of string before she planted a single seed. Theo carried the watering can, and together they counted the sprouts every morning. One bed grew faster than the others, so they moved it into the sun. By the end of the week the fountain was ringed with color, and the queen said the garden looked like a storybook. Amara learned that careful measuring made the flowers happier than guessing ever could. She left a little path so Sir Biscuit could sniff the blooms without sitting on them. Guests started having tea beside the fountain, and every cup came with a story about which flower had opened first.",
-    stable: "The pony at the stable was named Pip, and she shared her oats fairly when a second pony came to visit. Amara divided the apples into equal groups so nobody felt left out. Pip liked the smaller pile if it was offered with a gentle hand. On riding day the princess walked beside the pony before she climbed on, counting the fence posts they passed. The stable cat watched from the hay. When the ride ended, Pip got one apple and the visitor got one too. Sharing made the stable quieter and kinder. Amara brushed Pip's mane and promised to come back with another apple tomorrow, cut into the same fair pieces. The next visit would start with the same fair count, written on the stable door.",
-    studio: "In the art studio Amara built a picture from shapes she could name. A yellow circle became the sun. A blue square became a window. Two triangles made a little boat. She folded the paper and found a line where both sides matched. That line of symmetry made the boat look steady. Her teacher asked how many corners the window had, and Amara touched all four. She hung the picture in the hall so the shapes could greet people. Sir Biscuit tilted his head at the boat, as if he hoped it might float. Amara added one more circle for his nose and laughed. She counted the shapes once more before she put the brushes away in their jar today.",
-    nook: "The secret library nook hid behind a sliding bookcase. Amara pulled a green book and found a story about a brave mouse who helped a lost kitten. The main idea was simple: friends look for each other. She also met a new word, scurry, and tried it in a sentence of her own. The nook was quiet enough to hear the page turn. Theo knocked in the pattern they had agreed on, two soft taps and one loud one, and she let him in. They read the ending together and talked about why the mouse went back into the rain. The answer was in the last paragraph, not in the picture on the cover. They closed the book gently so the nook would stay a quiet place.",
-    tea: "The tea pavilion charged three coins for a cup and one coin for a lemon cookie. Amara paid with a handful of ten and counted the change into Theo's palm so he could see it. Four places were set, and she had filled one, which she called one fourth of the table. When a knight arrived with only eight coins, she helped him choose a cup and still keep enough for the bridge toll. Making change felt like a little puzzle with a kind ending. The cookies were warm. Nobody left the pavilion with the wrong number of coins, and the princess wrote the prices on a card so the next host would be just as careful with every coin.",
-    maze: "The rose maze had hedges that turned in rectangles. Amara paced the outside and found each side was five steps, so the perimeter was twenty steps around. Inside, one room of the maze was three steps by four, and she covered it in her mind with twelve square tiles. A pink ribbon marked the path that did not loop. She checked her count twice before she trusted it. At the center a single white rose waited, and the sign said the area of the center bed was six. She smiled because six was three times two, and she could see both numbers in the soil. Sir Biscuit stayed on the path, which was the bravest thing a short dog could do.",
-    training: "In the training hall the clock started the fencing drill at two fifteen. Amara practiced until two forty-five and then figured the elapsed time by counting the minutes on her fingers. Thirty minutes of footwork made her ankles warm. The jiu jitsu ribbon lesson came next and lasted a quarter of an hour, which she knew was fifteen minutes. She wrote both times on the board so the next student would not have to guess. Coach Ben nodded when the numbers matched the clock. Being on time was part of being ready. Amara hung her ribbon straight and promised to return when the little hand was on the four and the big hand was straight up on the twelve exactly.",
-    court: "On the tennis court Amara kept score by fives. Love was zero, then five, ten, fifteen, and she said each number out loud so her partner could hear the pattern. When the score was ten to fifteen she compared the numbers and saw who was ahead. Skip counting made the long game feel shorter. A ball boy retrieved three balls at once, and Amara added them in her head before the next serve. The net never moved, which helped. At the end she shook hands and checked the card. The greater number had won, and both players still smiled. They agreed to count by fives the same way tomorrow, and to compare the numbers out loud before the last serve.",
-    observatory: "The observatory dome opened onto a sky full of patterns. Amara saw stars in groups of ten and called each group a ten. Four groups and seven single stars made forty-seven. She wrote the number and underlined the tens place. A comet repeated every third night, so she marked a calendar with the pattern star, star, moon. The telescope was heavy, but the numbers were light. Theo asked which digit meant the most, and she pointed to the four. Place value made the big sky feel organized. They closed the dome only after they had named the pattern one more time and checked that forty-seven still meant four tens and seven ones on the little slate by the round door.",
-    swans: "The swan boat needed a measured path around the moat. Amara used a ribbon marked in centimeters and found one gentle curve was one hundred centimeters, a whole meter. She cut a shorter ribbon of thirty centimeters for the flag. The water was calm, and the swan moved only when she pedaled. Measuring first kept the boat away from the stones. Sir Biscuit sat very still so the numbers would not wobble. When they returned to the dock, the ribbon matched the post exactly. Amara rolled it up and stored it in a dry box. Next time she would measure the other way around the moat and compare the two lengths on the same dry ribbon after the slow ride.",
-    stage: "The ballroom stage had a chart of applause. One night the roses got five claps and the tulips got three. Amara drew a bar for each and saw the rose bar was taller. How many more claps did the roses get? She subtracted and found two. The chart helped the musicians see what the room loved. She added a star that meant two extra bows, and four stars meant eight bows. Data turned the noisy cheering into a picture she could read. The chandelier glowed while she pinned the chart beside the curtain. Tomorrow the bars would start again at zero, honest and empty, ready for a new chart of claps and a taller bar for the clear winner tonight.",
-    corgi: "Sir Biscuit wanted to learn a bow. Amara made it a word problem so the trick had a story. He had six treats. He gave two to a friend, then found three more under the chair. She did the first step, six minus two, and then the second step, four plus three. Seven treats meant seven happy wags, but the bow came before the last treat. He dipped his nose, one paw forward, and the hall clapped. The word problem was the lesson, and the bow was the prize. Amara saved the last treat for the spin they would learn next, which would need a new story with two steps of its own before any treat was given out loud."
+    terrace: "Amara wanted the terrace to smell like rain and roses. She measured each bed with a piece of string before she planted a single seed. Theo carried the watering can, and together they counted the sprouts every morning. One bed grew faster than the others, so they moved it into the sun. By the end of the week the fountain was ringed with color, and the queen said the garden looked like a storybook. Amara learned that careful measuring made the flowers happier than guessing ever could. She left a little path so Sir Biscuit could sniff the blooms without sitting on them. Guests started having tea beside the fountain, and every cup came with a story about which flower had opened first. That evening Amara wrote each length in a little book so next spring she could match the beds again. Theo drew the fountain on the last page. They agreed the best part was measuring carefully and doing the work together.",
+    stable: "The pony at the stable was named Pip, and she shared her oats fairly when a second pony came to visit. Amara divided the apples into equal groups so nobody felt left out. Pip liked the smaller pile if it was offered with a gentle hand. On riding day the princess walked beside the pony before she climbed on, counting the fence posts they passed. The stable cat watched from the hay. When the ride ended, Pip got one apple and the visitor got one too. Sharing made the stable quieter and kinder. Amara brushed Pip's mane and promised to come back with another apple tomorrow, cut into the same fair pieces. The next visit would start with the same fair count, written on the stable door. In the morning Pip waited by the gate, and Amara checked the note before she opened the oat bin. Equal shares kept both ponies calm. She closed the stable proud that nobody had been left out.",
+    studio: "In the art studio Amara built a picture from shapes she could name. A yellow circle became the sun. A blue square became a window. Two triangles made a little boat. She folded the paper and found a line where both sides matched. That line of symmetry made the boat look steady. Her teacher asked how many corners the window had, and Amara touched all four. She hung the picture in the hall so the shapes could greet people. Sir Biscuit tilted his head at the boat, as if he hoped it might float. Amara added one more circle for his nose and laughed. She counted the shapes once more before she put the brushes away in their jar today. The teacher smiled and asked her to point to the fold line. Amara did, and the two sides matched. The picture stayed in the hall so other children could count the corners too.",
+    nook: "The secret library nook hid behind a sliding bookcase. Amara pulled a green book and found a story about a brave mouse who helped a lost kitten. The main idea was simple: friends look for each other. She also met a new word, scurry, and tried it in a sentence of her own. The nook was quiet enough to hear the page turn. Theo knocked in the pattern they had agreed on, two soft taps and one loud one, and she let him in. They read the ending together and talked about why the mouse went back into the rain. The answer was in the last paragraph, not in the picture on the cover. They closed the book gently so the nook would stay a quiet place. Amara slid the bookcase shut and whispered the new word once more. The mouse and the kitten had found each other, and that was the heart of the tale. Theo promised to knock the same way tomorrow.",
+    tea: "The tea pavilion charged three coins for a cup and one coin for a lemon cookie. Amara paid with a handful of ten and counted the change into Theo's palm so he could see it. Four places were set, and she had filled one, which she called one fourth of the table. When a knight arrived with only eight coins, she helped him choose a cup and still keep enough for the bridge toll. Making change felt like a little puzzle with a kind ending. The cookies were warm. Nobody left the pavilion with the wrong number of coins, and the princess wrote the prices on a card so the next host would be just as careful with every coin. When the last guest left, Amara counted the jar twice. The number matched her card. She blew out the candle feeling sure that fair change had made the party kind.",
+    maze: "The rose maze had hedges that turned in rectangles. Amara paced the outside and found each side was five steps, so the perimeter was twenty steps around. Inside, one room of the maze was three steps by four, and she covered it in her mind with twelve square tiles. A pink ribbon marked the path that did not loop. She checked her count twice before she trusted it. At the center a single white rose waited, and the sign said the area of the center bed was six. She smiled because six was three times two, and she could see both numbers in the soil. Sir Biscuit stayed on the path, which was the bravest thing a short dog could do. Amara walked back out the way she had come and checked the ribbon once more. The numbers still matched the hedges. She left the maze smiling, because measuring had kept her from getting lost.",
+    training: "In the training hall the clock started the fencing drill at two fifteen. Amara practiced until two forty-five and then figured the elapsed time by counting the minutes on her fingers. Thirty minutes of footwork made her ankles warm. The jiu jitsu ribbon lesson came next and lasted a quarter of an hour, which she knew was fifteen minutes. She wrote both times on the board so the next student would not have to guess. Coach Ben nodded when the numbers matched the clock. Being on time was part of being ready. Amara hung her ribbon straight and promised to return when the little hand was on the four and the big hand was straight up on the twelve exactly. Coach Ben tapped the clock and nodded. Amara bowed, hung up her ribbon, and walked out on time. Knowing the minutes had made the whole lesson feel steady.",
+    court: "On the tennis court Amara kept score by fives. Love was zero, then five, ten, fifteen, and she said each number out loud so her partner could hear the pattern. When the score was ten to fifteen she compared the numbers and saw who was ahead. Skip counting made the long game feel shorter. A ball boy retrieved three balls at once, and Amara added them in her head before the next serve. The net never moved, which helped. At the end she shook hands and checked the card. The greater number had won, and both players still smiled. They agreed to count by fives the same way tomorrow, and to compare the numbers out loud before the last serve. Amara shook hands and wrote the final score on the card. The greater number had won, and both players still wanted another game. Counting by fives had kept the match fair from the first serve to the last.",
+    observatory: "The observatory dome opened onto a sky full of patterns. Amara saw stars in groups of ten and called each group a ten. Four groups and seven single stars made forty-seven. She wrote the number and underlined the tens place. A comet repeated every third night, so she marked a calendar with the pattern star, star, moon. The telescope was heavy, but the numbers were light. Theo asked which digit meant the most, and she pointed to the four. Place value made the big sky feel organized. They closed the dome only after they had named the pattern one more time and checked that forty-seven still meant four tens and seven ones on the little slate by the round door. Theo closed the slate and they pulled the dome shut together. The pattern of the comet was saved for the next clear night. Amara felt the big sky had become a story she could read.",
+    swans: "The swan boat needed a measured path around the moat. Amara used a ribbon marked in centimeters and found one gentle curve was one hundred centimeters, a whole meter. She cut a shorter ribbon of thirty centimeters for the flag. The water was calm, and the swan moved only when she pedaled. Measuring first kept the boat away from the stones. Sir Biscuit sat very still so the numbers would not wobble. When they returned to the dock, the ribbon matched the post exactly. Amara rolled it up and stored it in a dry box. Next time she would measure the other way around the moat and compare the two lengths on the same dry ribbon after the slow ride. At the dock she held the two ribbons side by side. They were not the same, so she wrote both numbers down. Next time the swan would follow the shorter, safer curve. Measuring first had kept them off the stones.",
+    stage: "The ballroom stage had a chart of applause. One night the roses got five claps and the tulips got three. Amara drew a bar for each and saw the rose bar was taller. How many more claps did the roses get? She subtracted and found two. The chart helped the musicians see what the room loved. She added a star that meant two extra bows, and four stars meant eight bows. Data turned the noisy cheering into a picture she could read. The chandelier glowed while she pinned the chart beside the curtain. Tomorrow the bars would start again at zero, honest and empty, ready for a new chart of claps and a taller bar for the clear winner tonight. The musicians looked at the bars and chose the next song. Amara pinned the chart straight and stepped off the stage. A picture of the numbers had told the truth better than the noise.",
+    corgi: "Sir Biscuit wanted to learn a bow. Amara made it a word problem so the trick had a story. He had six treats. He gave two to a friend, then found three more under the chair. She did the first step, six minus two, and then the second step, four plus three. Seven treats meant seven happy wags, but the bow came before the last treat. He dipped his nose, one paw forward, and the hall clapped. The word problem was the lesson, and the bow was the prize. Amara saved the last treat for the spin they would learn next, which would need a new story with two steps of its own before any treat was given. He held the bow until she said the last number out loud. Then he wagged, took one treat, and sat. The story had two steps, and so did the trick. Amara clapped once for the math and once for the dog."
   };
   function wordCount(text) { return String(text || "").trim().split(/\s+/).filter(Boolean).length; }
   let loreId = "terrace";
+  let natureAnchor = { x: 8, z: 14 };
+  function natureQuestion() {
+    const w = worldBag().nature;
+    const more = w.frog - w.fish;
+    const choices = [String(more), "0", String(more + 1), String(more + 2), String(w.frog), String(w.fish)];
+    const unique = [];
+    choices.forEach((c) => { if (!unique.includes(c)) unique.push(c); });
+    while (unique.length < 4) unique.push(String(10 + unique.length));
+    return { prompt: "How many more frogs than fish?", choices: unique.slice(0, 4), answer: 0, skill: "data" };
+  }
   function activityNature() {
     placeNature();
     const w = worldBag().nature;
-    const top = Object.entries(w).sort((a, b) => b[1] - a[1])[0];
-    const bars = ["frog", "fish", "flower"].map((k) => {
-      const cells = Array.from({ length: 4 }, (_, i) => `<span class="ex-cell${i < w[k] ? " on" : ""}"></span>`).join("");
-      return `<div><b>${k}</b> ${cells} ${w[k]}</div>`;
-    }).join("");
-    return `<header><h2>Nature walk</h2><button class="ghost" id="learn-exit">Exit</button></header><p>Tap a creature on the bank, then read the tally.</p><div class="learn-choices"><button data-spot="frog">Frog ${w.frog}</button><button data-spot="fish">Fish ${w.fish}</button><button data-spot="flower">Flower ${w.flower}</button></div><div class="learn-visual">${bars}</div><p class="learn-prompt">Most spots: ${top[1] ? top[0] : "none yet"}</p>`;
+    const q = natureQuestion();
+    return `<header><h2>Nature walk</h2><button class="ghost" id="learn-exit">Exit</button></header><div class="learn-choices"><button data-spot="frog">Frog ${w.frog}</button><button data-spot="fish">Fish ${w.fish}</button><button data-spot="flower">Flower ${w.flower}</button></div><p class="learn-prompt">${q.prompt}</p><div class="learn-choices">${q.choices.map((c, i) => `<button data-nq="${i}">${c}</button>`).join("")}</div>`;
   }
   function activityGarden() {
     const g = gardenNow();
     placeGarden(g.cm);
-    const marks = [0, 4, 8, 12, 16].map((n) => `<i style="left:${(n / 16) * 100}%">${n}</i>`).join("");
-    return `<header><h2>Garden ruler</h2><button class="ghost" id="learn-exit">Exit</button></header><p>The sunflower is ${g.cm} cm, about ${g.inches} inches. Day ${g.days}.</p><div class="learn-ruler">${marks}<span class="ex-dot" style="left:${(g.cm / 16) * 100}%;top:6px"></span></div><p class="learn-prompt">${g.prompt}</p><div class="learn-choices">${g.choices.map((c, i) => `<button data-choice="${i}" disabled>${c}</button>`).join("")}</div>`;
+    const ticks = [];
+    for (let n = 0; n <= 16; n++) ticks.push(`<b style="bottom:${(n / 16) * 100}%">${n}</b>`);
+    const flowerH = Math.max(8, Math.round((g.cm / 16) * 124));
+    const tall = gardenChoices(g.cm, "cm");
+    const grew = gardenChoices(g.grew, "cm");
+    return `<header><h2>Garden ruler</h2><button class="ghost" id="learn-exit">Exit</button></header><div class="g-row"><div class="g-ruler">${ticks.join("")}</div><div class="g-stem" style="height:${flowerH}px"></div></div><p class="learn-prompt">How tall is the sunflower?</p><div class="learn-choices">${tall.map((c, i) => `<button data-gq="${i}">${c}</button>`).join("")}</div><p class="learn-prompt">How much did it grow since Day 2?</p><div class="learn-choices">${grew.map((c, i) => `<button data-gg="${i}">${c}</button>`).join("")}</div>`;
+  }
+  function gardenChoices(right, unit) {
+    const opts = [right, right + 2, Math.max(0, right - 2), right + 4];
+    const unique = [];
+    opts.forEach((n) => { const label = n + " " + unit; if (!unique.includes(label)) unique.push(label); });
+    while (unique.length < 4) unique.push((right + 6 + unique.length) + " " + unit);
+    return unique.slice(0, 4);
   }
   function activityArt() {
     const art = worldBag().art;
     const icons = { triangle: "△", square: "□", circle: "○" };
     const corners = art.reduce((n, s) => n + ({ triangle: 3, square: 4, circle: 0 }[s] || 0), 0);
-    const squares = art.filter((s) => s === "square").length;
-    return `<header><h2>Art shapes</h2><button class="ghost" id="learn-exit">Exit</button></header><p>Add shapes. A square has 4 sides, 4 corners, and a fold line.</p><div class="learn-shapes">${art.map((s) => s === "square" ? `<span class="fold">${icons[s]}</span>` : icons[s]).join("") || "…"}</div><div class="learn-choices"><button data-shape="triangle">Triangle</button><button data-shape="square">Square</button><button data-shape="circle">Circle</button></div><p>${corners} corners. Squares in the picture: ${squares}. The dashed line is a line of symmetry.</p>`;
+    const sideQ = ["1", "2", "4", "0"];
+    const cornerChoices = gardenChoices(corners, "corners").map((c) => c.replace(" corners", ""));
+    return `<header><h2>Art shapes</h2><button class="ghost" id="learn-exit">Exit</button></header><p>Build a picture, then count.</p><div class="learn-shapes">${art.map((s) => s === "square" ? `<span class="fold">${icons[s]}</span>` : icons[s]).join("") || "…"}</div><div class="learn-choices"><button data-shape="triangle">Triangle</button><button data-shape="square">Square</button><button data-shape="circle">Circle</button></div><p class="learn-prompt">How many corners are in your picture?</p><div class="learn-choices">${cornerChoices.map((c, i) => `<button data-aq="${i}">${c}</button>`).join("")}</div><p class="learn-prompt">How many lines of symmetry does a square have?</p><div class="learn-choices">${sideQ.map((c, i) => `<button data-as="${i}">${c}</button>`).join("")}</div>`;
   }
   function activitySport() {
     const w = worldBag();
@@ -769,7 +831,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
   }
   function activityLore() {
     const story = loreFor(loreId) || loreFor("terrace");
-    return `<header><h2>${esc(story.title)}</h2><button class="ghost" id="learn-exit">Exit</button></header><div class="learn-story">${esc(storyPreview(story.text))}</div><p class="learn-prompt">${esc(story.main.prompt)}</p><div class="learn-choices">${story.main.choices.map((c, i) => `<button data-lore="${i}">${esc(c)}</button>`).join("")}</div>`;
+    return `<header><h2>${esc(story.title)}</h2><button class="ghost" id="learn-exit">Exit</button></header><div class="learn-story">${esc(story.text)}</div><p class="learn-prompt">${esc(story.main.prompt)}</p><div class="learn-choices">${story.main.choices.map((c, i) => `<button data-lore="${i}">${esc(c)}</button>`).join("")}</div>`;
   }
   function lorePick(choice) {
     const story = loreFor(loreId);
@@ -795,41 +857,152 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     PE.scene.add(m);
   }
   function placeNature() {
-    if (!PE.stream || !PE.stream.samples || !PE.gfx43) return;
+    if (!PE.stream || !PE.stream.samples || !PE.gfx43 || PE.scene.getObjectByName("v47-spot-frog")) return;
+    const THREE = PE.gfx43.THREE;
     const samples = PE.stream.samples();
     if (!samples.length) return;
-    [["frog", "#3cb44b", 6], ["fish", "#3d8bfd", 18], ["flower", "#ff7ac8", 30]].forEach(([kind, color, idx]) => {
-      const s = samples[Math.min(samples.length - 1, idx)];
-      const y = (PE.groundH ? PE.groundH(s.x, s.z) : 0) + 0.45;
-      meshAt("v47-" + kind, color, s.x + (s.nx || 0) * 1.4, y, s.z + (s.nz || 0) * 1.4, kind === "flower" ? 0.28 : 0.4);
+    let best = samples[0], score = -1e9;
+    samples.forEach((s) => { const sc = s.z - Math.abs(s.x) * 0.15; if (sc > score && s.z > 4 && s.z < 28) { score = sc; best = s; } });
+    const y = (PE.groundH ? PE.groundH(best.x, best.z) : 0);
+    const nx = best.nx || 1, nz = best.nz || 0;
+    [["frog", -1.5, "#3cb44b"], ["fish", 0, "#3d8bfd"], ["flower", 1.5, "#ff7ac8"]].forEach(([kind, side, color]) => {
+      const group = new THREE.Group();
+      group.name = "v47-spot-" + kind;
+      const body = new THREE.Mesh(new THREE.SphereGeometry(kind === "flower" ? 0.28 : 0.55, 12, 10), new THREE.MeshLambertMaterial({ color }));
+      body.position.y = 0.55;
+      group.add(body);
+      if (kind === "flower") {
+        const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.7, 6), new THREE.MeshLambertMaterial({ color: "#2f8f3a" }));
+        stem.position.y = 0.35;
+        group.add(stem);
+        body.position.y = 0.8;
+      }
+      group.position.set(best.x + nx * 2.2 + nz * side, y, best.z + nz * 2.2 - nx * side);
+      group.userData.kind = kind;
+      PE.scene.add(group);
+    });
+    natureAnchor = { x: best.x + nx * 2.2, z: best.z + nz * 2.2 };
+    bindPicks();
+  }
+  function bindPicks() {
+    const canvas = document.getElementById("scene");
+    const THREE = PE.gfx43 && PE.gfx43.THREE;
+    if (!canvas || !THREE || canvas.dataset.v47pick) return;
+    canvas.dataset.v47pick = "1";
+    const ray = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    canvas.addEventListener("pointerdown", (ev) => {
+      if (mode !== "nature" || !PE.camera) return;
+      const rect = canvas.getBoundingClientRect();
+      mouse.x = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((ev.clientY - rect.top) / rect.height) * 2 + 1;
+      ray.setFromCamera(mouse, PE.camera);
+      const hits = ray.intersectObjects(PE.scene.children, true);
+      for (let i = 0; i < hits.length; i++) {
+        let o = hits[i].object;
+        while (o) {
+          if (o.name && o.name.indexOf("v47-spot-") === 0) {
+            tapNature(o.name.slice(9));
+            show();
+            return;
+          }
+          o = o.parent;
+        }
+      }
     });
   }
   function placeGarden(cm) {
     if (!PE.gfx43 || !PE.scene) return;
     const THREE = PE.gfx43.THREE;
     let plant = PE.scene.getObjectByName("v47-plant");
-    const h = 0.7 + cm * 0.06;
+    const h = 0.35 + cm * 0.12;
     if (!plant) {
-      plant = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 1, 8), new THREE.MeshLambertMaterial({ color: "#3cb44b" }));
-      plant.name = "v47-plant";
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), new THREE.MeshLambertMaterial({ color: "#ffd45a" }));
-      head.position.y = 0.55;
-      plant.add(head);
-      plant.position.set(14.2, 0, 9.2);
-      PE.scene.add(plant);
+      const group = new THREE.Group();
+      group.name = "v47-plant";
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 1, 8), new THREE.MeshLambertMaterial({ color: "#3cb44b" }));
+      stem.name = "v47-stem";
+      group.add(stem);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), new THREE.MeshLambertMaterial({ color: "#ffd45a" }));
+      head.position.y = 0.62;
+      group.add(head);
+      const pole = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.4, 0.08), new THREE.MeshLambertMaterial({ color: "#f4efe4" }));
+      pole.position.set(0.7, 1.2, 0);
+      group.add(pole);
+      for (let n = 0; n <= 16; n++) {
+        const tick = new THREE.Mesh(new THREE.BoxGeometry(n % 2 ? 0.16 : 0.28, 0.03, 0.03), new THREE.MeshLambertMaterial({ color: "#4a2c6f" }));
+        tick.position.set(0.55, n * 0.15, 0);
+        group.add(tick);
+      }
+      group.position.set(11.5, 0, 7.5);
+      PE.scene.add(group);
+      plant = group;
     }
-    const gy = PE.groundH ? PE.groundH(14.2, 9.2) : 0;
-    plant.scale.y = h;
-    plant.position.y = gy + h * 0.5;
+    const stem = plant.getObjectByName("v47-stem");
+    const gy = PE.groundH ? PE.groundH(11.5, 7.5) : 0;
+    if (stem) { stem.scale.y = h; stem.position.y = h * 0.5; }
+    const head = plant.children[1];
+    if (head) head.position.y = h + 0.2;
+    plant.position.y = gy;
   }
+  const LORE_Q = {
+    terrace: {
+      main: ["Measuring the beds carefully helped the flowers grow better than guessing.", "Theo carried the watering can before breakfast.", "People enjoy gardens.", "The queen had planted every rose herself."],
+      infer: ["Amara will use her length book again next spring.", "Theo refused to help after midday.", "The fountain was taken down that night.", "The shady bed grew the tallest leaves."]
+    },
+    stable: {
+      main: ["Sharing the oats and apples equally kept both ponies content.", "A cat watched from the hay.", "Animals live in stables.", "Pip ate the visitor's whole share."],
+      infer: ["Amara plans to use the same fair count on the next visit.", "The second pony was sent away hungry.", "The stable cat drove the ponies out.", "Pip disliked every apple."]
+    },
+    studio: {
+      main: ["Amara built a picture from shapes and used a fold line to check it.", "She hung the picture in the hall.", "Art uses many colors.", "The teacher painted the boat for her."],
+      infer: ["Other children can practice counting corners on her picture.", "Sir Biscuit tore the painting down.", "The square window had no corners.", "Amara hid the picture so nobody could see it."]
+    },
+    nook: {
+      main: ["A quiet story shows that friends look for each other.", "Theo knocked two soft taps and one loud one.", "Libraries have many books.", "The kitten did not want a friend."],
+      infer: ["Amara and Theo will meet in the nook again.", "Amara never learned a new word.", "The mouse stayed lost in the rain.", "They left the bookcase open all night."]
+    },
+    tea: {
+      main: ["Careful counting let every guest leave with the right change.", "A cup cost three coins.", "Parties need food.", "The knight paid nothing and kept all his coins."],
+      infer: ["The price card will help the next host make fair change.", "Amara's jar count did not match her card.", "The cookies were never served.", "Four places meant the table was empty."]
+    },
+    maze: {
+      main: ["Measuring the hedges helped Amara reach the center and find her way out.", "A white rose waited in the center.", "Mazes are puzzles.", "Sir Biscuit ran ahead and got lost."],
+      infer: ["Amara trusts the ribbon because the numbers matched on the way out.", "The center bed had an area of twenty.", "She never checked her count.", "The hedges moved after she left."]
+    },
+    training: {
+      main: ["Knowing the start and end times helped Amara finish the lesson ready.", "The drill began at two fifteen.", "Practice happens indoors.", "Coach Ben said her clock was wrong."],
+      infer: ["Amara left the hall when she had promised to return.", "The ribbon lesson lasted a full hour.", "She skipped writing the times on the board.", "Footwork took only five minutes."]
+    },
+    court: {
+      main: ["Skip counting by fives and comparing numbers kept the tennis match fair.", "A ball boy brought three balls.", "Sports are fun.", "The lower number won the match."],
+      infer: ["Both players would count by fives again in another game.", "Amara refused to shake hands.", "The net was moved during the last serve.", "They stopped keeping score after ten."]
+    },
+    observatory: {
+      main: ["Place value and a repeating pattern helped Amara read the night sky.", "Four groups of ten made forty.", "Stars are far away.", "Theo said the ones digit mattered most."],
+      infer: ["They will look for the comet again on the marked night.", "Amara erased the number forty-seven.", "The dome stayed open in the rain.", "The pattern was moon, moon, star."]
+    },
+    swans: {
+      main: ["Measuring the curves first kept the swan boat off the stones.", "One ribbon was one hundred centimeters.", "Boats float on water.", "The two ribbons were exactly the same length."],
+      infer: ["Next time Amara will choose the shorter curve on purpose.", "Sir Biscuit steered the boat into the stones.", "She threw both ribbons away.", "The flag ribbon was longer than a meter."]
+    },
+    stage: {
+      main: ["A bar chart helped the musicians see which song the room loved.", "The roses got five claps.", "People like music.", "The tulip bar was the taller one."],
+      infer: ["The musicians trusted the chart more than the loudest shout.", "Amara started the next chart at five.", "Each star meant ten bows.", "The chandelier went out before the chart was pinned."]
+    },
+    corgi: {
+      main: ["A two-step story helped Sir Biscuit learn his bow.", "He started with six treats.", "Dogs can do tricks.", "Amara gave him the treat before the bow."],
+      infer: ["The spin will also begin with a two-step story.", "Sir Biscuit ended with eleven treats.", "He never sat after the bow.", "The hall was empty when he dipped his nose."]
+    }
+  };
   function loreFor(id) {
     const text = LORE[id];
-    if (!text) return null;
-    const skill = id === "nook" ? "reading" : (BUILD_SKILL[id] || "reading");
+    const pack = LORE_Q[id];
+    if (!text || !pack) return null;
+    const ask = (prompt, choices) => ({ prompt, choices, answer: 0 });
     return {
       id, text, words: wordCount(text), title: (PE.care.DEFS.find((d) => d.id === id) || {}).name || id,
-      main: { prompt: "What is the main idea of this story?", choices: ["A careful skill helps the day go well.", "The castle is closed.", "Nobody learns anything.", "The story is about a storm at sea."], answer: 0 },
-      infer: { prompt: "What can you tell that the story does not say outright?", choices: ["Practice made the next try easier.", "The characters gave up.", "Coins were taken away.", "The place does not exist."], answer: 0, skill }
+      main: ask("What is the main idea of this story?", pack.main),
+      infer: ask("What can you tell that the story does not say outright?", pack.infer)
     };
   }
   function worldBag() {
@@ -856,7 +1029,8 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     const start = worldBag().gardenDay || today();
     const days = Math.max(0, dayNum(today()) - dayNum(start));
     const cm = Math.min(16, 2 + days * 2);
-    return { cm, inches: Math.round((cm / 2.54) * 10) / 10, days, prompt: `The sunflower is ${cm} cm tall. Which ruler mark matches it?`, choices: [cm + " cm", (cm + 3) + " cm", "1 cm", "30 cm"], answer: 0 };
+    const onDay2 = Math.min(16, 2 + Math.min(days, 2) * 2);
+    return { cm, days, grew: cm - onDay2, spot: { x: 11.5, z: 7.5 } };
   }
   function addShape(shape) {
     const allowed = { triangle: 3, square: 4, circle: 0 };
@@ -940,12 +1114,9 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
       bulb.position.y = 0.62;
       post.add(bulb);
       PE.scene.add(post);
-      const snow = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 6), new THREE.MeshLambertMaterial({ color: "#f4fbff" }));
-      snow.position.set(x * 0.55, (PE.groundH ? PE.groundH(x * 0.55, z * 0.55) : 0) + 0.12, z * 0.55);
-      snow.name = "v47-snow";
-      PE.scene.add(snow);
     }
     try { snowRoofs(); } catch (err) { /* a mesh without bounds is skipped */ }
+    snowFall();
   }
   function snowRoofs() {
     const THREE = PE.gfx43.THREE;
@@ -953,30 +1124,53 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     const box = new THREE.Box3();
     const size = new THREE.Vector3();
     const center = new THREE.Vector3();
-    const tops = [];
+    const snowMat = new THREE.MeshLambertMaterial({ color: "#ffffff" });
+    let n = 0;
     PE.scene.updateMatrixWorld(true);
-    PE.scene.traverse((o) => {
-      if (!o.isMesh || !o.geometry) return;
-      const col = o.material && o.material.color;
-      if (col && col.g > col.r + 0.15 && col.g > 0.35) return;
+    const list = [];
+    PE.scene.traverse((o) => { if (o.isMesh && o.geometry && !String(o.name || "").startsWith("v47-")) list.push(o); });
+    list.sort((a, b) => (b.geometry.type === "ConeGeometry") - (a.geometry.type === "ConeGeometry"));
+    list.forEach((o) => {
+      if (n > 120) return;
       box.setFromObject(o);
+      if (!isFinite(box.max.y)) return;
       box.getSize(size);
       box.getCenter(center);
-      if (size.y < 5 || size.y > 28) return;
-      if (Math.hypot(center.x, center.z + 1) > 10) return;
-      tops.push({ x: center.x, y: box.max.y, z: center.z, w: Math.max(size.x, size.z) });
-    });
-    tops.sort((a, b) => b.y - a.y);
-    const used = [];
-    tops.forEach((t) => {
-      if (used.some((u) => Math.hypot(u.x - t.x, u.z - t.z) < 1.2)) return;
-      if (used.length > 6) return;
-      used.push(t);
-      const cap = new THREE.Mesh(new THREE.ConeGeometry(Math.max(0.7, Math.min(2.2, t.w * 0.35)), 1.3, 8), new THREE.MeshLambertMaterial({ color: "#ffffff" }));
-      cap.position.set(t.x, t.y + 0.35, t.z);
+      if (Math.hypot(center.x, center.z) > 22) return;
+      const col = o.material && o.material.color;
+      const green = col && col.g > col.r + 0.08 && col.g > 0.25;
+      const cone = o.geometry.type === "ConeGeometry";
+      if (!cone && (size.x > 14 || size.z > 14 || size.y > 24)) return;
+      if (green && (size.y < 0.7 || size.y > 4)) return;
+      if (!green && !cone && size.y < 1.1) return;
+      let capR = 0.4;
+      let capH = 0.35;
+      if (cone) { capR = Math.min(1.25, Math.max(0.65, Math.min(size.x, size.z) * 0.48)); capH = 0.9; }
+      else if (green) { capR = 0.42; capH = 0.32; }
+      else if (size.y > 1.6 && Math.min(size.x, size.z) < 2.4) { capR = 0.5; capH = 0.4; }
+      else return;
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(capR, capH, 8), snowMat);
+      cap.position.set(center.x, box.max.y + capH * 0.45, center.z);
       cap.name = "v47-roof-snow";
       PE.scene.add(cap);
+      n++;
     });
+  }
+  function snowFall() {
+    const THREE = PE.gfx43.THREE;
+    if (PE.scene.getObjectByName("v47-fall")) return;
+    const count = 90;
+    const pos = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      pos[i * 3] = (Math.random() - 0.5) * 36;
+      pos[i * 3 + 1] = 2 + Math.random() * 12;
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 36;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: "#ffffff", size: 0.18 }));
+    pts.name = "v47-fall";
+    PE.scene.add(pts);
   }
   function celebrate() {
     let el = document.getElementById("v47-cheer");
@@ -1049,7 +1243,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     },
     parent: { hold, open: openParent, card: progress },
     lore: loreFor,
-    nature: { tap: tapNature },
+    nature: { tap: tapNature, question: natureQuestion, where: () => natureAnchor },
     garden: { plant: plantGarden, now: gardenNow },
     art: { add: addShape },
     sport: { point: sportPoint },

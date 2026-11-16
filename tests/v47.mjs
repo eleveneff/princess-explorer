@@ -163,12 +163,14 @@ check("a missed skill is queued for 1, 3, and 7 days and comes back in Daily Thr
 
 const parent = await page.evaluate(() => {
   const L = window.PrincessExplorer.learn;
+  L.record("fractions", false);
+  L.record("fractions", false);
   const early = L.hold(2000);
   L.addPlay(120000);
   const open = L.hold(1000);
-  return { early: early.reason, weak: open.card.weak.length, play: open.card.playMs, streak: open.card.streak };
+  return { early: early.reason, weak: open.card.weak, rows: open.card.rows, play: open.card.playMs, streak: open.card.streak };
 });
-check("the progress card needs a 3 second hold and shows weakest skills", parent.early === "hold" && parent.weak >= 1 && parent.weak <= 3 && parent.play >= 120000 && parent.streak === 3, JSON.stringify(parent));
+check("the progress card needs a 3 second hold and shows weakest skills", parent.early === "hold" && parent.weak.length >= 1 && parent.weak.length <= 3 && parent.weak.every((w) => w.n >= 2 && w.acc < 80) && parent.play >= 120000 && parent.streak === 3, JSON.stringify(parent.weak));
 
 const reading = await page.evaluate(() => {
   const L = window.PrincessExplorer.learn;
@@ -197,7 +199,7 @@ check("a math miss opens the shared coin tutorial", mathShot && mathShot.skill =
 
 const lore = await page.evaluate(() => {
   const stories = ["terrace", "stable", "studio", "nook", "tea", "maze", "training", "court", "observatory", "swans", "stage", "corgi"].map((id) => window.PrincessExplorer.learn.lore(id));
-  return stories.map((s) => ({ id: s.id, words: s.words, ok: s.words >= 120 && s.words <= 180 && s.main.answer === 0 && s.infer.answer === 0 }));
+  return stories.map((s) => ({ id: s.id, words: s.words, ok: s.words >= 120 && s.words <= 180 && s.main.answer === 0 && s.infer.answer === 0 && s.main.choices.length === 4 && !s.main.choices.join(" ").includes("storm at sea") && !s.main.choices.join(" ").includes("castle is closed") }));
 });
 check("each build story is 120 to 180 words with two questions", lore.every((s) => s.ok), JSON.stringify(lore.filter((s) => !s.ok)));
 
