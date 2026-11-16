@@ -1200,8 +1200,42 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
   }
 
   document.addEventListener("keydown", onKey, true);
+  function dressGrounds() {
+    if (!PE.gfx43 || !PE.scene || PE.scene.getObjectByName("v47-tufts")) return;
+    const THREE = PE.gfx43.THREE;
+    const group = new THREE.Group();
+    group.name = "v47-tufts";
+    const green = new THREE.MeshLambertMaterial({ color: "#6fce63" });
+    const pink = new THREE.MeshLambertMaterial({ color: "#ff8fb8" });
+    const white = new THREE.MeshLambertMaterial({ color: "#fff6c8" });
+    for (let i = 0; i < 24; i++) {
+      const a = (i / 24) * Math.PI * 2 + 0.2;
+      const r = 15.5 + (i % 4) * 0.8;
+      const x = Math.cos(a) * r;
+      const z = -1 + Math.sin(a) * r;
+      const y = (PE.groundH ? PE.groundH(x, z) : 0) + 0.18;
+      const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.42, 5), i % 3 === 0 ? pink : i % 3 === 1 ? white : green);
+      tuft.position.set(x, y, z);
+      group.add(tuft);
+    }
+    PE.scene.add(group);
+    const count = 40;
+    const pos = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2;
+      pos[i * 3] = Math.cos(a) * 10.1;
+      pos[i * 3 + 1] = 0.42;
+      pos[i * 3 + 2] = -1 + Math.sin(a) * 10.1;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    const foam = new THREE.Points(geo, new THREE.PointsMaterial({ color: "#ffffff", size: 0.2 }));
+    foam.name = "v47-moat-foam";
+    PE.scene.add(foam);
+  }
   ui();
   bag();
+  dressGrounds();
   requestAnimationFrame(loop);
 
   PE.learn = {
