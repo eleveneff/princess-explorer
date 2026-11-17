@@ -85,7 +85,7 @@ const play = await page.evaluate(() => {
   const hudHidden = getComputedStyle(document.getElementById("hud")).visibility === "hidden";
   return {
     gardenGives: /sunflower is \d+ cm/.test(gardenText),
-    gardenAsks: gardenText.includes("How tall is the sunflower?") && gardenText.includes("How much did it grow since Day 2?"),
+    gardenAsks: gardenText.includes("How tall is the sunflower?") && !gardenText.includes("How much did it grow since Day 2?"),
     grew: grew.grew,
     nq: nq.choices.length,
     creatures,
@@ -106,11 +106,16 @@ const gardenFit = await page.evaluate(() => {
   window.PrincessExplorer.learn.play("garden");
   const card = document.getElementById("learn-card").getBoundingClientRect();
   const marks = [...document.querySelectorAll(".g-ruler b")].map((el) => el.textContent);
-  const buttons = [...document.querySelectorAll("[data-gg]")].map((el) => el.getBoundingClientRect());
+  const ruler = document.querySelector(".g-ruler");
+  const plant = document.querySelector(".g-plant");
+  const ratio = plant && ruler ? plant.offsetHeight / ruler.offsetHeight : 0;
+  const buttons = [...document.querySelectorAll("[data-gq]")].map((el) => el.getBoundingClientRect());
   const onScreen = buttons.length === 4 && buttons.every((b) => b.top >= card.top && b.bottom <= Math.min(card.bottom, window.innerHeight) + 1);
-  return { marks, onScreen };
+  document.querySelector("[data-gq='0']").click();
+  const grewNext = document.body.innerText.includes("How much did it grow since Day 2?");
+  return { marks: marks.length, onScreen, ratio, grewNext, head: !!document.querySelector(".g-head") };
 });
-check("garden does not state the height and asks both questions", play.gardenAsks && !play.gardenGives && play.grew === 4 && gardenFit.marks.length === 17 && gardenFit.onScreen, JSON.stringify({ grew: play.grew, gives: play.gardenGives, marks: gardenFit.marks.length, onScreen: gardenFit.onScreen }));
+check("garden does not state the height and asks both questions", play.gardenAsks && !play.gardenGives && play.grew === 4 && gardenFit.marks === 17 && gardenFit.onScreen && gardenFit.grewNext && gardenFit.head && Math.abs(gardenFit.ratio - 10 / 16) < 0.05, JSON.stringify(gardenFit));
 check("nature creatures exist and the data question has 4 choices", play.creatures.every(Boolean) && play.nq === 4, JSON.stringify(play.creatures));
 check("art asks for corners and lines of symmetry", play.artAsks);
 check("biscuit trick asks a two-step question", play.dog);

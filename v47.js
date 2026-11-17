@@ -280,13 +280,15 @@ mark.learn-hit{background:#ffe08a;border-radius:6px;padding:0 3px}
 @keyframes wag{50%{transform:rotate(-12deg) translateY(-4px)}}
 .learn-ruler{position:relative;height:28px;margin:10px 0;background:repeating-linear-gradient(90deg,#4a2c6f 0 2px,transparent 2px 18px);border-bottom:3px solid #4a2c6f}
 .learn-ruler i{position:absolute;top:-18px;font-style:normal;font-size:12px}
-#learn-card.short{max-height:46vh}
-.g-row{display:flex;align-items:flex-end;gap:10px;height:108px;margin:2px 0}
-.g-ruler{position:relative;flex:1;height:22px;border-bottom:3px solid #4a2c6f;align-self:flex-end;margin-bottom:4px}
-.g-ruler b{position:absolute;top:4px;font-size:11px;line-height:12px;font-weight:700;transform:translateX(-50%)}
-.g-stem{width:22px;border-radius:12px 12px 3px 3px;background:linear-gradient(#ffd45a 0 18%,#3cb44b 18% 100%)}
-.g-qs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.g-qs .learn-choices{grid-template-columns:1fr 1fr}
+#learn-card.short{max-height:36vh}
+.learn-choices.nat{grid-template-columns:1fr 1fr 1fr}
+#learn-card.short button{min-height:34px;padding:6px 8px}
+.g-stage{position:relative;height:176px;margin:4px 0 8px}
+.g-ruler{position:absolute;left:4px;bottom:0;width:64px;height:168px;border-left:3px solid #4a2c6f}
+.g-ruler b{position:absolute;left:8px;font-size:10px;line-height:10px;font-weight:700;transform:translateY(5px)}
+.g-plant{position:absolute;left:78px;bottom:0;width:36px;display:flex;flex-direction:column;align-items:center}
+.g-head{width:26px;height:26px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff4b0,#f0b429 58%,#d98416);box-shadow:0 0 0 3px #e07a18;flex:0 0 auto}
+.g-stem{width:12px;background:linear-gradient(#67c45a,#2f7d34);border-radius:6px 6px 2px 2px;flex:0 0 auto}
 .learn-shapes{font-size:42px;letter-spacing:10px;text-align:center}
 .learn-shapes .fold{display:inline-block;border-left:3px dashed #ff5fa2;padding-left:8px}
 .learn-story{font-size:15px;line-height:1.4;max-height:34vh;overflow:auto;background:#fff;border-radius:12px;padding:8px}
@@ -504,7 +506,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
       }
       if (b.dataset.gq != null) {
         const g = gardenNow();
-        if (+b.dataset.gq === 0) celebrate();
+        if (+b.dataset.gq === 0) { gardenAsk = "grew"; show(); }
         else openTutorial({ skill: "measure", prompt: "How tall is the sunflower?", explain: "Read the ruler from 0 up to the top of the flower.", choices: gardenChoices(g.cm, "cm"), answer: 0 });
         return;
       }
@@ -719,6 +721,9 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
       gfx.sways.forEach((b, i) => { b.rotation.z = Math.sin(gfx.t * 1.5 + i) * 0.18; });
       gfx.wags.forEach((w) => { w.rotation.z = Math.sin(gfx.t * 7) * 0.55; });
       gfx.clouds.forEach((c, i) => { c.position.x += Math.sin(gfx.t * 0.15 + i) * step * 0.35; });
+      natureBobs.forEach((g, i) => {
+        g.position.y = (g.userData.baseY || 0) + Math.sin(clockMs / 280 + i) * 0.16;
+      });
     }
     const due = pending.filter((job) => job.at <= clockMs);
     if (due.length) {
@@ -786,6 +791,8 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
   function wordCount(text) { return String(text || "").trim().split(/\s+/).filter(Boolean).length; }
   let loreId = "terrace";
   let natureAnchor = { x: 8, z: 14 };
+  let natureBobs = [];
+  let gardenAsk = "height";
   let gfx = null;
   function natureQuestion() {
     const w = worldBag().nature;
@@ -800,17 +807,21 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     placeNature();
     const w = worldBag().nature;
     const q = natureQuestion();
-    return `<header><h2><span class="learn-ico">🐸</span>Nature walk</h2><button class="ghost" id="learn-exit">Exit</button></header><div class="learn-choices"><button data-spot="frog">Frog ${w.frog}</button><button data-spot="fish">Fish ${w.fish}</button><button data-spot="flower">Flower ${w.flower}</button></div><p class="learn-prompt">${q.prompt}</p><div class="learn-choices">${q.choices.map((c, i) => `<button data-nq="${i}">${c}</button>`).join("")}</div>`;
+    return `<header><h2><span class="learn-ico">🐸</span>Nature walk</h2><button class="ghost" id="learn-exit">Exit</button></header><div class="learn-choices nat"><button data-spot="frog">Frog ${w.frog}</button><button data-spot="fish">Fish ${w.fish}</button><button data-spot="flower">Flower ${w.flower}</button></div><p class="learn-prompt">${q.prompt}</p><div class="learn-choices">${q.choices.map((c, i) => `<button data-nq="${i}">${c}</button>`).join("")}</div>`;
   }
   function activityGarden() {
     const g = gardenNow();
     placeGarden(g.cm);
+    const rulerH = 168;
+    const total = Math.round((g.cm / 16) * rulerH);
+    const head = 26;
+    const stem = Math.max(4, total - head);
     const ticks = [];
-    for (let n = 0; n <= 16; n++) ticks.push(`<b style="left:${(n / 16) * 100}%">${n}</b>`);
-    const flowerH = Math.max(12, Math.round((g.cm / 16) * 100));
-    const tall = gardenChoices(g.cm, "cm");
-    const grew = gardenChoices(g.grew, "cm");
-    return `<header><h2><span class="learn-ico">🌻</span>Garden ruler</h2><button class="ghost" id="learn-exit">Exit</button></header><div class="g-row"><div class="g-stem" style="height:${flowerH}px"></div><div class="g-ruler">${ticks.join("")}</div></div><div class="g-qs"><div><p class="learn-prompt">How tall is the sunflower?</p><div class="learn-choices">${tall.map((c, i) => `<button data-gq="${i}">${c}</button>`).join("")}</div></div><div><p class="learn-prompt">How much did it grow since Day 2?</p><div class="learn-choices">${grew.map((c, i) => `<button data-gg="${i}">${c}</button>`).join("")}</div></div></div>`;
+    for (let n = 0; n <= 16; n++) ticks.push(`<b style="bottom:${(n / 16) * 100}%">${n}</b>`);
+    const asking = gardenAsk === "grew"
+      ? { prompt: "How much did it grow since Day 2?", choices: gardenChoices(g.grew, "cm"), attr: "gg" }
+      : { prompt: "How tall is the sunflower?", choices: gardenChoices(g.cm, "cm"), attr: "gq" };
+    return `<header><h2><span class="learn-ico">🌻</span>Garden ruler</h2><button class="ghost" id="learn-exit">Exit</button></header><div class="g-stage"><div class="g-ruler">${ticks.join("")}</div><div class="g-plant" style="height:${total}px"><div class="g-head"></div><div class="g-stem" style="height:${stem}px"></div></div></div><p class="learn-prompt">${asking.prompt}</p><div class="learn-choices">${asking.choices.map((c, i) => `<button data-${asking.attr}="${i}">${c}</button>`).join("")}</div>`;
   }
   function gardenChoices(right, unit) {
     const opts = [right, right + 2, Math.max(0, right - 2), right + 4];
@@ -853,9 +864,41 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     if (!right) openTutorial({ skill: "reading", prompt: story.main.prompt, passage: story.text, choices: story.main.choices, answer: story.main.answer, explain: story.text.slice(0, 180) });
     else { celebrate(); show(); }
   }
+  function hookLook() {
+    const cam = PE.camera;
+    if (!cam || cam._v47look) return;
+    cam._v47look = true;
+    const orig = cam.lookAt.bind(cam);
+    cam.lookAt = function (x, y, z) {
+      if (mode === "garden") {
+        const plant = PE.scene && PE.scene.getObjectByName("v47-plant");
+        if (plant) {
+          const p = plant.position;
+          cam.position.set(p.x + 1.1, p.y + 1.5, p.z + 4.4);
+          return orig(p.x, p.y + 0.15, p.z);
+        }
+      }
+      if (mode === "nature") {
+        cam.position.set(natureAnchor.x + 3.4, 4.8, natureAnchor.z + 7.4);
+        return orig(natureAnchor.x, 1.3, natureAnchor.z);
+      }
+      return orig(x, y, z);
+    };
+  }
   function openPlay(name) {
-    if (name === "garden" && !worldBag().gardenDay) plantGarden(addDays(today(), -3));
-    if (name === "nature") placeNature();
+    if (name === "garden") {
+      gardenAsk = "height";
+      if (!worldBag().gardenDay) plantGarden(addDays(today(), -3));
+      const g = gardenNow();
+      placeGarden(g.cm);
+      if (PE.teleport) PE.teleport(15.4, 11.6);
+      hookLook();
+    }
+    if (name === "nature") {
+      placeNature();
+      if (PE.teleport) PE.teleport(natureAnchor.x + 4.6, natureAnchor.z + 3.6);
+      hookLook();
+    }
     if (name === "winter") { drawWinter(); mode = "winter"; show(); return { ok: true, winter: winterOn(), mode: "winter" }; }
     mode = name;
     show();
@@ -878,21 +921,30 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     samples.forEach((s) => { const sc = s.z - Math.abs(s.x) * 0.15; if (sc > score && s.z > 4 && s.z < 28) { score = sc; best = s; } });
     const y = (PE.groundH ? PE.groundH(best.x, best.z) : 0);
     const nx = best.nx || 1, nz = best.nz || 0;
-    [["frog", -1.5, "#3cb44b"], ["fish", 0, "#3d8bfd"], ["flower", 1.5, "#ff7ac8"]].forEach(([kind, side, color]) => {
+    [["frog", -2.1, "#3cb44b"], ["fish", 0, "#3d8bfd"], ["flower", 2.1, "#ff7ac8"]].forEach(([kind, side, color]) => {
       const group = new THREE.Group();
       group.name = "v47-spot-" + kind;
-      const body = new THREE.Mesh(new THREE.SphereGeometry(kind === "flower" ? 0.28 : 0.55, 12, 10), new THREE.MeshLambertMaterial({ color }));
-      body.position.y = 0.55;
+      const radius = (kind === "flower" ? 0.28 : 0.55) * 1.75;
+      const body = new THREE.Mesh(new THREE.SphereGeometry(radius, 14, 12), new THREE.MeshLambertMaterial({ color }));
+      body.position.y = radius + 0.15;
       group.add(body);
+      const glow = new THREE.Mesh(new THREE.CircleGeometry(radius * 1.7, 18), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
+      glow.rotation.x = -Math.PI / 2;
+      glow.position.y = 0.06;
+      group.add(glow);
       if (kind === "flower") {
-        const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.7, 6), new THREE.MeshLambertMaterial({ color: "#2f8f3a" }));
-        stem.position.y = 0.35;
+        const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 1.1, 6), new THREE.MeshLambertMaterial({ color: "#2f8f3a" }));
+        stem.position.y = 0.55;
         group.add(stem);
-        body.position.y = 0.8;
+        body.position.y = 1.25;
       }
-      group.position.set(best.x + nx * 2.2 + nz * side, y, best.z + nz * 2.2 - nx * side);
+      const px = best.x + nx * 2.6 + nz * side;
+      const pz = best.z + nz * 2.6 - nx * side;
+      group.position.set(px, y, pz);
+      group.userData.baseY = y;
       group.userData.kind = kind;
       PE.scene.add(group);
+      natureBobs.push(group);
     });
     natureAnchor = { x: best.x + nx * 2.2, z: best.z + nz * 2.2 };
     bindPicks();
@@ -1129,6 +1181,12 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
       PE.scene.add(post);
     }
     try { snowRoofs(); } catch (err) { /* a mesh without bounds is skipped */ }
+    [[-4.5, 10.4, 2.5, 2.05], [4.5, 10.4, 2.5, 2.05], [-4.5, 10.4, -4.5, 1.8], [4.5, 10.4, -4.5, 1.8], [0, 11.6, -1.5, 2.4]].forEach(([x, y, z, r]) => {
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(r, 2.3, 12), new THREE.MeshBasicMaterial({ color: "#ffffff" }));
+      cap.position.set(x, y, z);
+      cap.name = "v47-roof-snow";
+      PE.scene.add(cap);
+    });
     snowFall();
   }
   function snowRoofs() {
@@ -1137,7 +1195,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     const box = new THREE.Box3();
     const size = new THREE.Vector3();
     const center = new THREE.Vector3();
-    const snowMat = new THREE.MeshLambertMaterial({ color: "#ffffff" });
+    const snowMat = new THREE.MeshBasicMaterial({ color: "#ffffff" });
     let n = 0;
     PE.scene.updateMatrixWorld(true);
     const list = [];
@@ -1158,12 +1216,12 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
       if (!green && !cone && size.y < 1.1) return;
       let capR = 0.4;
       let capH = 0.35;
-      if (cone) { capR = Math.min(1.25, Math.max(0.65, Math.min(size.x, size.z) * 0.48)); capH = 0.9; }
+      if (cone) { capR = Math.min(1.85, Math.max(0.95, Math.min(size.x, size.z) * 0.62)); capH = 1.55; }
       else if (green) { capR = 0.42; capH = 0.32; }
       else if (size.y > 1.6 && Math.min(size.x, size.z) < 2.4) { capR = 0.5; capH = 0.4; }
       else return;
       const cap = new THREE.Mesh(new THREE.ConeGeometry(capR, capH, 8), snowMat);
-      cap.position.set(center.x, box.max.y + capH * 0.45, center.z);
+      cap.position.set(center.x, box.max.y - capH * 0.15, center.z);
       cap.name = "v47-roof-snow";
       PE.scene.add(cap);
       n++;
@@ -1321,18 +1379,20 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
       for (let i = 0; i < 30; i++) { g.beginPath(); g.arc((i * 61) % w, (i * 43) % h, 2, 0, 7); g.fill(); }
     }, 256, 256);
     const moss = paintTex((g, w, h) => {
-      g.fillStyle = "#c8c2b8";
+      g.fillStyle = "#d7d2ca";
       g.fillRect(0, 0, w, h);
-      for (let i = 0; i < 40; i++) {
-        g.fillStyle = `rgba(${150 + (i % 20)},${150 + (i % 15)},${145 + (i % 10)},.35)`;
+      for (let i = 0; i < 24; i++) {
+        g.fillStyle = "rgba(160,156,148,.22)";
         g.beginPath();
-        g.arc((i * 37) % w, (i * 19) % h, 8 + (i % 5) * 3, 0, 7);
+        g.arc((i * 47) % w, (i * 29) % h, 5, 0, 7);
         g.fill();
       }
-      g.fillStyle = "#3f8f45";
-      for (let i = 0; i < 16; i++) { g.beginPath(); g.ellipse((i * 53) % w, (i * 29) % h, 18, 10, i, 0, 7); g.fill(); }
-      g.fillStyle = "#7dba55";
-      for (let i = 0; i < 10; i++) { g.beginPath(); g.arc((i * 71) % w, (i * 23) % h, 7, 0, 7); g.fill(); }
+      g.fillStyle = "rgba(96,122,78,.38)";
+      for (let i = 0; i < 7; i++) {
+        g.beginPath();
+        g.ellipse(24 + (i * 34) % (w - 48), 6 + (i * 9) % Math.floor(h * 0.2), 9, 4, i * 0.4, 0, 7);
+        g.fill();
+      }
     }, 256, 256);
     const sky = paintTex((g, w, h) => {
       const grd = g.createLinearGradient(0, 0, 0, h);
@@ -1383,9 +1443,9 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
         if (maxDim > 12 && minDim > 4) return;
         const parentScale = new THREE.Vector3(1, 1, 1);
         if (o.parent) o.parent.getWorldScale(parentScale);
-        const tall = Math.max(0.4, Math.min(size.x, size.y, size.z));
-        o.geometry = new THREE.SphereGeometry(1, 28, 20);
-        o.scale.set(tall * 0.55 / parentScale.x, tall * 0.42 / parentScale.y, tall * 0.55 / parentScale.z);
+        const tall = Math.max(0.35, Math.min(size.x, size.y, size.z)) * 0.6;
+        o.geometry = new THREE.SphereGeometry(1, 24, 16);
+        o.scale.set(tall * 0.42 / parentScale.x, tall * 0.32 / parentScale.y, tall * 0.42 / parentScale.z);
         const mat = o.material.clone();
         mat.map = moss;
         mat.color.set("#e7e2d8");
@@ -1400,11 +1460,12 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
       if (!isFinite(box.max.y)) return;
       const size = box.getSize(new THREE.Vector3());
       const center = box.getCenter(new THREE.Vector3());
-      if (size.x > 4 && size.x < 9 && size.y > 3 && size.y < 8 && center.y > 1 && center.y < 6 && Math.hypot(center.x, center.z) < 36) chunky.push({ o, center, r: Math.min(size.x, size.y, size.z) * 0.46 });
+      if (size.x > 4 && size.x < 9 && size.y > 3 && size.y < 8 && center.y > 1 && center.y < 6 && Math.hypot(center.x, center.z) < 36) chunky.push({ o, center, r: Math.min(size.x, size.y, size.z) * 0.28 });
     });
     chunky.forEach(({ o, center, r }) => {
       o.visible = false;
-      const rock = new THREE.Mesh(new THREE.SphereGeometry(r, 28, 20), new THREE.MeshLambertMaterial({ map: moss, color: "#e7e2d8" }));
+      if (Math.abs(center.x) < 16 && center.z > 8 && center.z < 26) center.x += center.x >= 0 ? 4 : -4;
+      const rock = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 16), new THREE.MeshLambertMaterial({ map: moss, color: "#d9d4cc" }));
       rock.position.copy(center);
       root.add(rock);
     });
