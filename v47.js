@@ -251,9 +251,11 @@
     s.textContent = `
 #learn-layer{position:fixed;inset:0;z-index:60;display:none;align-items:flex-end;justify-content:center;background:rgba(70,30,90,.18);padding:10px}
 #learn-layer.show{display:flex}
-#learn-card{width:min(760px,100%);max-height:min(62vh,640px);overflow:auto;background:#fffaf2;border:7px solid #ff7ac8;border-radius:28px 28px 18px 18px;padding:12px 14px 16px;color:#4a2c6f;font-family:Trebuchet MS,sans-serif;box-shadow:0 12px 0 rgba(0,0,0,.12)}
+#learn-card{width:min(760px,100%);max-height:min(62vh,640px);overflow:auto;background:#fffaf2;border:7px solid #ff7ac8;border-radius:28px 28px 18px 18px;padding:12px 14px 16px;color:#4a2c6f;font-family:"Trebuchet MS",sans-serif;box-shadow:0 22px 40px rgba(70,24,60,.28),0 10px 0 rgba(0,0,0,.08)}
 #learn-card header{display:flex;align-items:center;justify-content:space-between;gap:8px}
-#learn-card h2{margin:0;font-size:26px}
+#learn-card h2{margin:0;font-size:26px;font-family:"Trebuchet MS",sans-serif;display:flex;align-items:center;gap:8px}
+.learn-ico{width:36px;height:36px;border-radius:12px;background:linear-gradient(#fff,#ffd6ee);display:inline-flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 3px 0 rgba(180,70,130,.22);flex:0 0 auto}
+#v47-grade{position:fixed;inset:0;pointer-events:none;z-index:4;background:radial-gradient(ellipse at center, rgba(255,214,170,.08) 40%, rgba(40,18,28,.38) 100%)}
 #learn-card button{font:800 17px/1.2 Trebuchet MS,sans-serif;border-radius:14px;border:0;background:#ff5fa2;color:#fff;padding:8px 10px;min-height:40px;cursor:pointer}
 #learn-card .ghost{background:#fff;color:#8a4fe0;border:3px solid #b57bff}
 #learn-exit{min-width:88px}
@@ -431,24 +433,24 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     if (mode === "tutor" && tutor) {
       if (tutor.phase === "practice") {
         const q = tutor.practice;
-        return `<header><h2>Try one like it</h2><button class="ghost" id="learn-exit">Exit</button></header><p>${SKILL_NAME[tutor.skill] || tutor.skill}. This practice does not change your coins.</p><p class="learn-prompt">${esc(q.prompt)}</p><div class="learn-choices">${q.choices.map((c, i) => `<button data-tutor="${i}">${esc(c)}</button>`).join("")}</div>${pause}`;
+        return `<header><h2><span class="learn-ico">✎</span>Try one like it</h2><button class="ghost" id="learn-exit">Exit</button></header><p>${SKILL_NAME[tutor.skill] || tutor.skill}. This practice does not change your coins.</p><p class="learn-prompt">${esc(q.prompt)}</p><div class="learn-choices">${q.choices.map((c, i) => `<button data-tutor="${i}">${esc(c)}</button>`).join("")}</div>${pause}`;
       }
       const step = tutor.steps[tutor.step];
       const visual = step.visual === "read"
         ? `<div class="learn-visual"><p>Look here: <mark class="learn-hit">${esc(tutor.hit)}</mark></p></div>`
         : visualHtml(step.visual, step.n, 0.75);
       const skip = tutor.step >= 1 ? `<button id="learn-skip">Skip</button>` : "";
-      return `<header><h2>Let's learn it</h2><button class="ghost" id="learn-exit">Exit</button></header><p>Step ${tutor.step + 1} of ${tutor.steps.length}</p><p class="learn-prompt">${esc(step.say)}</p>${visual}<button id="learn-next">${tutor.step === tutor.steps.length - 1 ? "Practice" : "Next"}</button>${skip}${pause}`;
+      return `<header><h2><span class="learn-ico">✎</span>Let's learn it</h2><button class="ghost" id="learn-exit">Exit</button></header><p>Step ${tutor.step + 1} of ${tutor.steps.length}</p><p class="learn-prompt">${esc(step.say)}</p>${visual}<button id="learn-next">${tutor.step === tutor.steps.length - 1 ? "Practice" : "Next"}</button>${skip}${pause}`;
     }
     if (mode === "parent") {
       const info = progress();
       const rows = info.rows.length ? info.rows.map((r) => `<div class="v-row"><b>${SKILL_NAME[r.skill] || r.skill}</b> — ${r.acc}% of ${r.n}</div>`).join("") : "<p>No answers yet.</p>";
       const weak = info.weak.length ? info.weak.map((r, i) => `<div>${i + 1}. ${SKILL_NAME[r.skill] || r.skill} (${r.acc}%)</div>`).join("") : "<p>No weak spots yet.</p>";
-      return `<header><h2>Progress</h2><button class="ghost" id="learn-exit">Exit</button></header><p>Time played: ${Math.round(info.playMs / 60000)} min. Daily streak: ${info.streak}.</p><p><b>Weakest skills</b></p>${weak}<p><b>Accuracy</b></p>${rows}${pause}`;
+      return `<header><h2><span class="learn-ico">★</span>Progress</h2><button class="ghost" id="learn-exit">Exit</button></header><p>Time played: ${Math.round(info.playMs / 60000)} min. Daily streak: ${info.streak}.</p><p><b>Weakest skills</b></p>${weak}<p><b>Accuracy</b></p>${rows}${pause}`;
     }
     if (mode === "daily" && daily) {
       const q = daily.qs[daily.i];
-      if (!q) return `<header><h2>Daily Three</h2><button class="ghost" id="learn-exit">Exit</button></header><p>Done for today.</p>${pause}`;
+      if (!q) return `<header><h2><span class="learn-ico">☀</span>Daily Three</h2><button class="ghost" id="learn-exit">Exit</button></header><p>Done for today.</p>${pause}`;
       return head("Daily Three", `Warm-up ${daily.i + 1} of 3`) + bodyQ(q) + pause;
     }
     if (mode === "nature") return activityNature() + pause;
@@ -457,7 +459,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     if (mode === "sport") return activitySport() + pause;
     if (mode === "biscuit") return activityBiscuit() + pause;
     if (mode === "lore") return activityLore() + pause;
-    if (mode === "winter") return `<header><h2>Winter castle</h2><button class="ghost" id="learn-exit">Exit</button></header><p>${winterOn() ? "December 1 to January 6. Frost on the moat, lights on the lawn, snow on the ground." : "The winter castle waits from December 1 to January 6."}</p>${winterOn() ? `<button id="learn-wreath">Wreath challenge, 20 coins</button>` : ""}` + pause;
+    if (mode === "winter") return `<header><h2><span class="learn-ico">❄</span>Winter castle</h2><button class="ghost" id="learn-exit">Exit</button></header><p>${winterOn() ? "December 1 to January 6. Frost on the moat, lights on the lawn, snow on the ground." : "The winter castle waits from December 1 to January 6."}</p>${winterOn() ? `<button id="learn-wreath">Wreath challenge, 20 coins</button>` : ""}` + pause;
     if (mode === "gate" && gate) {
       const q = gate.qs[gate.i];
       const title = (PE.care.DEFS.find((d) => d.id === gate.id) || {}).name || "Build";
@@ -466,7 +468,8 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     return "";
   }
   function head(title, step) {
-    return `<header><h2>${title}</h2><button class="ghost" id="learn-exit">Exit</button></header><p>${step}</p>`;
+    const icon = mode === "daily" ? "☀" : "🏰";
+    return `<header><h2><span class="learn-ico">${icon}</span>${title}</h2><button class="ghost" id="learn-exit">Exit</button></header><p>${step}</p>`;
   }
   function bodyQ(q) {
     let html = `<p class="learn-prompt">${q.prompt}</p><div class="learn-choices">${q.choices.map((c, i) => `<button data-choice="${i}">${c}</button>`).join("")}</div>`;
@@ -710,6 +713,13 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
       }
       fall.geometry.attributes.position.needsUpdate = true;
     }
+    if (gfx) {
+      gfx.t += step;
+      gfx.scrolls.forEach((s) => { s.map.offset.x = gfx.t * s.speed; s.map.offset.y = Math.sin(gfx.t * s.speed) * 0.05; });
+      gfx.sways.forEach((b, i) => { b.rotation.z = Math.sin(gfx.t * 1.5 + i) * 0.18; });
+      gfx.wags.forEach((w) => { w.rotation.z = Math.sin(gfx.t * 7) * 0.55; });
+      gfx.clouds.forEach((c, i) => { c.position.x += Math.sin(gfx.t * 0.15 + i) * step * 0.35; });
+    }
     const due = pending.filter((job) => job.at <= clockMs);
     if (due.length) {
       pending.splice(0, pending.length, ...pending.filter((job) => job.at > clockMs));
@@ -776,6 +786,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
   function wordCount(text) { return String(text || "").trim().split(/\s+/).filter(Boolean).length; }
   let loreId = "terrace";
   let natureAnchor = { x: 8, z: 14 };
+  let gfx = null;
   function natureQuestion() {
     const w = worldBag().nature;
     const more = w.frog - w.fish;
@@ -789,7 +800,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     placeNature();
     const w = worldBag().nature;
     const q = natureQuestion();
-    return `<header><h2>Nature walk</h2><button class="ghost" id="learn-exit">Exit</button></header><div class="learn-choices"><button data-spot="frog">Frog ${w.frog}</button><button data-spot="fish">Fish ${w.fish}</button><button data-spot="flower">Flower ${w.flower}</button></div><p class="learn-prompt">${q.prompt}</p><div class="learn-choices">${q.choices.map((c, i) => `<button data-nq="${i}">${c}</button>`).join("")}</div>`;
+    return `<header><h2><span class="learn-ico">🐸</span>Nature walk</h2><button class="ghost" id="learn-exit">Exit</button></header><div class="learn-choices"><button data-spot="frog">Frog ${w.frog}</button><button data-spot="fish">Fish ${w.fish}</button><button data-spot="flower">Flower ${w.flower}</button></div><p class="learn-prompt">${q.prompt}</p><div class="learn-choices">${q.choices.map((c, i) => `<button data-nq="${i}">${c}</button>`).join("")}</div>`;
   }
   function activityGarden() {
     const g = gardenNow();
@@ -799,7 +810,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     const flowerH = Math.max(12, Math.round((g.cm / 16) * 100));
     const tall = gardenChoices(g.cm, "cm");
     const grew = gardenChoices(g.grew, "cm");
-    return `<header><h2>Garden ruler</h2><button class="ghost" id="learn-exit">Exit</button></header><div class="g-row"><div class="g-stem" style="height:${flowerH}px"></div><div class="g-ruler">${ticks.join("")}</div></div><div class="g-qs"><div><p class="learn-prompt">How tall is the sunflower?</p><div class="learn-choices">${tall.map((c, i) => `<button data-gq="${i}">${c}</button>`).join("")}</div></div><div><p class="learn-prompt">How much did it grow since Day 2?</p><div class="learn-choices">${grew.map((c, i) => `<button data-gg="${i}">${c}</button>`).join("")}</div></div></div>`;
+    return `<header><h2><span class="learn-ico">🌻</span>Garden ruler</h2><button class="ghost" id="learn-exit">Exit</button></header><div class="g-row"><div class="g-stem" style="height:${flowerH}px"></div><div class="g-ruler">${ticks.join("")}</div></div><div class="g-qs"><div><p class="learn-prompt">How tall is the sunflower?</p><div class="learn-choices">${tall.map((c, i) => `<button data-gq="${i}">${c}</button>`).join("")}</div></div><div><p class="learn-prompt">How much did it grow since Day 2?</p><div class="learn-choices">${grew.map((c, i) => `<button data-gg="${i}">${c}</button>`).join("")}</div></div></div>`;
   }
   function gardenChoices(right, unit) {
     const opts = [right, right + 2, Math.max(0, right - 2), right + 4];
@@ -814,16 +825,16 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     const corners = art.reduce((n, s) => n + ({ triangle: 3, square: 4, circle: 0 }[s] || 0), 0);
     const sideQ = ["1", "2", "4", "0"];
     const cornerChoices = gardenChoices(corners, "corners").map((c) => c.replace(" corners", ""));
-    return `<header><h2>Art shapes</h2><button class="ghost" id="learn-exit">Exit</button></header><p>Build a picture, then count.</p><div class="learn-shapes">${art.map((s) => s === "square" ? `<span class="fold">${icons[s]}</span>` : icons[s]).join("") || "…"}</div><div class="learn-choices"><button data-shape="triangle">Triangle</button><button data-shape="square">Square</button><button data-shape="circle">Circle</button></div><p class="learn-prompt">How many corners are in your picture?</p><div class="learn-choices">${cornerChoices.map((c, i) => `<button data-aq="${i}">${c}</button>`).join("")}</div><p class="learn-prompt">How many lines of symmetry does a square have?</p><div class="learn-choices">${sideQ.map((c, i) => `<button data-as="${i}">${c}</button>`).join("")}</div>`;
+    return `<header><h2><span class="learn-ico">▲</span>Art shapes</h2><button class="ghost" id="learn-exit">Exit</button></header><p>Build a picture, then count.</p><div class="learn-shapes">${art.map((s) => s === "square" ? `<span class="fold">${icons[s]}</span>` : icons[s]).join("") || "…"}</div><div class="learn-choices"><button data-shape="triangle">Triangle</button><button data-shape="square">Square</button><button data-shape="circle">Circle</button></div><p class="learn-prompt">How many corners are in your picture?</p><div class="learn-choices">${cornerChoices.map((c, i) => `<button data-aq="${i}">${c}</button>`).join("")}</div><p class="learn-prompt">How many lines of symmetry does a square have?</p><div class="learn-choices">${sideQ.map((c, i) => `<button data-as="${i}">${c}</button>`).join("")}</div>`;
   }
   function activitySport() {
     const w = worldBag();
-    return `<header><h2>Keep score</h2><button class="ghost" id="learn-exit">Exit</button></header><p>Each point adds 5. Compare the numbers.</p><div class="learn-choices"><button data-sport="tennis">Tennis ${w.tennis}</button><button data-sport="fence">Fencing ${w.fence}</button></div><p class="learn-prompt">${w.tennis === w.fence ? "Tied so far." : (w.tennis > w.fence ? "Tennis is ahead." : "Fencing is ahead.")}</p>`;
+    return `<header><h2><span class="learn-ico">🎾</span>Keep score</h2><button class="ghost" id="learn-exit">Exit</button></header><p>Each point adds 5. Compare the numbers.</p><div class="learn-choices"><button data-sport="tennis">Tennis ${w.tennis}</button><button data-sport="fence">Fencing ${w.fence}</button></div><p class="learn-prompt">${w.tennis === w.fence ? "Tied so far." : (w.tennis > w.fence ? "Tennis is ahead." : "Fencing is ahead.")}</p>`;
   }
   function activityBiscuit() {
     const q = trickStart("bow").question;
     const done = worldBag().tricks.bow;
-    return `<header><h2>Sir Biscuit</h2><button class="ghost" id="learn-exit">Exit</button></header><p id="v47-dog" style="font-size:48px;text-align:center">${done ? "🐶 bow" : "🐶"}</p><p class="learn-prompt">${q.prompt}</p><div class="learn-choices">${q.choices.map((c, i) => `<button data-trick="${i}">${c}</button>`).join("")}</div>`;
+    return `<header><h2><span class="learn-ico">🐶</span>Sir Biscuit</h2><button class="ghost" id="learn-exit">Exit</button></header><p id="v47-dog" style="font-size:48px;text-align:center">${done ? "🐶 bow" : "🐶"}</p><p class="learn-prompt">${q.prompt}</p><div class="learn-choices">${q.choices.map((c, i) => `<button data-trick="${i}">${c}</button>`).join("")}</div>`;
   }
   function storyPreview(text) {
     const sentences = String(text).match(/[^.!?]+[.!?]/g) || [text];
@@ -833,7 +844,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
   }
   function activityLore() {
     const story = loreFor(loreId) || loreFor("terrace");
-    return `<header><h2>${esc(story.title)}</h2><button class="ghost" id="learn-exit">Exit</button></header><div class="learn-story">${esc(story.text)}</div><p class="learn-prompt">${esc(story.main.prompt)}</p><div class="learn-choices">${story.main.choices.map((c, i) => `<button data-lore="${i}">${esc(c)}</button>`).join("")}</div>`;
+    return `<header><h2><span class="learn-ico">📖</span>${esc(story.title)}</h2><button class="ghost" id="learn-exit">Exit</button></header><div class="learn-story">${esc(story.text)}</div><p class="learn-prompt">${esc(story.main.prompt)}</p><div class="learn-choices">${story.main.choices.map((c, i) => `<button data-lore="${i}">${esc(c)}</button>`).join("")}</div>`;
   }
   function lorePick(choice) {
     const story = loreFor(loreId);
@@ -1202,38 +1213,386 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
   }
 
   document.addEventListener("keydown", onKey, true);
-  function dressGrounds() {
-    if (!PE.gfx43 || !PE.scene || PE.scene.getObjectByName("v47-tufts")) return;
+  function paintTex(draw, w, h) {
+    const c = document.createElement("canvas");
+    c.width = w;
+    c.height = h;
+    draw(c.getContext("2d"), w, h);
+    const tex = new PE.gfx43.THREE.CanvasTexture(c);
     const THREE = PE.gfx43.THREE;
-    const group = new THREE.Group();
-    group.name = "v47-tufts";
-    const green = new THREE.MeshLambertMaterial({ color: "#6fce63" });
-    const pink = new THREE.MeshLambertMaterial({ color: "#ff8fb8" });
-    const white = new THREE.MeshLambertMaterial({ color: "#fff6c8" });
-    for (let i = 0; i < 24; i++) {
-      const a = (i / 24) * Math.PI * 2 + 0.2;
-      const r = 15.5 + (i % 4) * 0.8;
-      const x = Math.cos(a) * r;
-      const z = -1 + Math.sin(a) * r;
-      const y = (PE.groundH ? PE.groundH(x, z) : 0) + 0.18;
-      const tuft = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.42, 5), i % 3 === 0 ? pink : i % 3 === 1 ? white : green);
-      tuft.position.set(x, y, z);
-      group.add(tuft);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+  function dressGrounds() {
+    if (!PE.gfx43 || !PE.scene || PE.scene.getObjectByName("v47-gfx")) return;
+    const THREE = PE.gfx43.THREE;
+    const root = new THREE.Group();
+    root.name = "v47-gfx";
+    PE.scene.add(root);
+    gfx = { t: 0, scrolls: [], sways: [], wags: [], clouds: [], ao: null, dogAo: null, dog: null };
+    if (!document.getElementById("v47-grade")) {
+      const grade = document.createElement("div");
+      grade.id = "v47-grade";
+      document.body.appendChild(grade);
     }
-    PE.scene.add(group);
-    const count = 40;
-    const pos = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      const a = (i / count) * Math.PI * 2;
-      pos[i * 3] = Math.cos(a) * 10.1;
-      pos[i * 3 + 1] = 0.42;
-      pos[i * 3 + 2] = -1 + Math.sin(a) * 10.1;
+    const stone = paintTex((g, w, h) => {
+      g.fillStyle = "#f6d0e4";
+      g.fillRect(0, 0, w, h);
+      const bw = 64, bh = 40;
+      for (let y = 0; y < h; y += bh) {
+        for (let x = -((y / bh) % 2) * bw / 2; x < w; x += bw) {
+          const shade = 18 + ((x + y) % 5) * 6;
+          g.fillStyle = `rgb(${230 + shade % 12},${170 + shade % 10},${196 + shade % 8})`;
+          g.fillRect(x + 3, y + 3, bw - 6, bh - 6);
+          g.fillStyle = "rgba(255,255,255,.35)";
+          g.fillRect(x + 4, y + 4, bw - 10, 5);
+          g.fillStyle = "rgba(120,50,80,.28)";
+          g.fillRect(x + 4, y + bh - 8, bw - 10, 4);
+        }
+      }
+      g.strokeStyle = "#9a5d78";
+      g.lineWidth = 3;
+      for (let y = 0; y <= h; y += bh) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
+      for (let y = 0; y < h; y += bh) {
+        const off = ((y / bh) % 2) * bw / 2;
+        for (let x = off; x <= w + bw; x += bw) { g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + bh); g.stroke(); }
+      }
+    }, 256, 256);
+    stone.repeat.set(2.2, 2.2);
+    const shingle = paintTex((g, w, h) => {
+      g.fillStyle = "#8d62d6";
+      g.fillRect(0, 0, w, h);
+      for (let row = 0; row < 8; row++) {
+        const y = row * 32;
+        const off = row % 2 ? 24 : 0;
+        for (let x = -48 + off; x < w; x += 48) {
+          g.fillStyle = row % 2 ? "#c9a6ff" : "#b388f0";
+          g.beginPath();
+          g.moveTo(x, y + 30);
+          g.quadraticCurveTo(x + 24, y - 4, x + 48, y + 30);
+          g.fill();
+          g.strokeStyle = "#5c3d96";
+          g.lineWidth = 2;
+          g.stroke();
+        }
+      }
+    }, 256, 256);
+    shingle.repeat.set(2, 3);
+    const wood = paintTex((g, w, h) => {
+      g.fillStyle = "#8a4e28";
+      g.fillRect(0, 0, w, h);
+      for (let i = 0; i < 6; i++) {
+        g.fillStyle = i % 2 ? "#c48955" : "#a86a3c";
+        g.fillRect(0, i * 22, w, 18);
+        g.strokeStyle = "rgba(90,40,16,.45)";
+        g.strokeRect(0, i * 22, w, 18);
+      }
+      g.fillStyle = "#4e555c";
+      g.fillRect(0, 18, w, 8);
+      g.fillRect(0, 70, w, 8);
+    }, 128, 128);
+    const paving = paintTex((g, w, h) => {
+      g.fillStyle = "#b08968";
+      g.fillRect(0, 0, w, h);
+      for (let y = 0; y < h; y += 36) {
+        const off = (y / 36) % 2 ? 28 : 0;
+        for (let x = -56 + off; x < w; x += 56) {
+          g.fillStyle = (x + y) % 3 ? "#f0d7b0" : "#e4c89a";
+          g.fillRect(x + 3, y + 3, 50, 30);
+          g.strokeStyle = "#8d6848";
+          g.strokeRect(x + 3, y + 3, 50, 30);
+        }
+      }
+    }, 256, 256);
+    paving.repeat.set(3, 3);
+    const caustic = paintTex((g, w, h) => {
+      g.clearRect(0, 0, w, h);
+      g.fillStyle = "#7fd4f2";
+      g.fillRect(0, 0, w, h);
+      g.strokeStyle = "rgba(255,255,255,.85)";
+      g.lineWidth = 3;
+      for (let i = 0; i < 18; i++) {
+        g.beginPath();
+        g.arc((i * 47) % w, (i * 31) % h, 10 + (i % 4) * 6, 0.2, 2.4);
+        g.stroke();
+      }
+      g.fillStyle = "rgba(255,255,255,.75)";
+      for (let i = 0; i < 30; i++) { g.beginPath(); g.arc((i * 61) % w, (i * 43) % h, 2, 0, 7); g.fill(); }
+    }, 256, 256);
+    const moss = paintTex((g, w, h) => {
+      g.fillStyle = "#c8c2b8";
+      g.fillRect(0, 0, w, h);
+      for (let i = 0; i < 40; i++) {
+        g.fillStyle = `rgba(${150 + (i % 20)},${150 + (i % 15)},${145 + (i % 10)},.35)`;
+        g.beginPath();
+        g.arc((i * 37) % w, (i * 19) % h, 8 + (i % 5) * 3, 0, 7);
+        g.fill();
+      }
+      g.fillStyle = "#3f8f45";
+      for (let i = 0; i < 16; i++) { g.beginPath(); g.ellipse((i * 53) % w, (i * 29) % h, 18, 10, i, 0, 7); g.fill(); }
+      g.fillStyle = "#7dba55";
+      for (let i = 0; i < 10; i++) { g.beginPath(); g.arc((i * 71) % w, (i * 23) % h, 7, 0, 7); g.fill(); }
+    }, 256, 256);
+    const sky = paintTex((g, w, h) => {
+      const grd = g.createLinearGradient(0, 0, 0, h);
+      grd.addColorStop(0, "#8ec5ff");
+      grd.addColorStop(0.55, "#d7ecff");
+      grd.addColorStop(1, "#ffe7c8");
+      g.fillStyle = grd;
+      g.fillRect(0, 0, w, h);
+      g.fillStyle = "rgba(255,255,255,.9)";
+      for (let i = 0; i < 9; i++) {
+        const x = 40 + (i * 97) % (w - 80);
+        const y = 30 + (i * 41) % (h * 0.55);
+        g.beginPath();
+        g.ellipse(x, y, 70, 28, 0, 0, 7);
+        g.ellipse(x + 40, y + 6, 50, 22, 0, 0, 7);
+        g.fill();
+      }
+    }, 512, 256);
+    const stoneMat = new THREE.MeshLambertMaterial({ map: stone, color: "#ffffff" });
+    const roofMat = new THREE.MeshLambertMaterial({ map: shingle, color: "#ffffff" });
+    const woodMat = new THREE.MeshLambertMaterial({ map: wood, color: "#ffffff" });
+    const box = new THREE.Box3();
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    PE.scene.traverse((o) => {
+      if (!o.isMesh || !o.material || !o.material.color) return;
+      const hex = o.material.color.getHexString();
+      box.setFromObject(o);
+      if (!isFinite(box.max.y)) return;
+      box.getSize(size);
+      box.getCenter(center);
+      const near = Math.hypot(center.x, center.z + 1) < 16;
+      if (near && (hex === "f9c2e4" || hex === "ffc6df") && size.y > 2 && size.x < 5) o.material = stoneMat;
+      if (near && (hex === "b57bff" || hex === "c99bff") && o.geometry.type === "ConeGeometry" && center.z > -2) o.material = roofMat;
+    });
+    const bridge = PE.scene.getObjectByName("v34-drawbridge");
+    if (bridge) bridge.traverse((o) => { if (o.isMesh) o.material = woodMat; });
+    PE.scene.traverse((o) => {
+      if (!o.isMesh || o.geometry.type !== "SphereGeometry" || !o.geometry.parameters) return;
+      const segs = o.geometry.parameters.widthSegments || 8;
+      const hex = o.material && o.material.color && o.material.color.getHexString();
+      if (hex === "d7cbb8" && segs <= 12) {
+        const box = new THREE.Box3().setFromObject(o);
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const minDim = Math.min(size.x, size.y, size.z);
+        if (maxDim < 1.5) return;
+        if (maxDim > 12 && minDim > 4) return;
+        const parentScale = new THREE.Vector3(1, 1, 1);
+        if (o.parent) o.parent.getWorldScale(parentScale);
+        const tall = Math.max(0.4, Math.min(size.x, size.y, size.z));
+        o.geometry = new THREE.SphereGeometry(1, 28, 20);
+        o.scale.set(tall * 0.55 / parentScale.x, tall * 0.42 / parentScale.y, tall * 0.55 / parentScale.z);
+        const mat = o.material.clone();
+        mat.map = moss;
+        mat.color.set("#e7e2d8");
+        o.material = mat;
+      }
+      if (o.geometry.parameters.radius > 80 && o.material && o.material.color) o.material.color.set("#d7ecff");
+    });
+    const chunky = [];
+    PE.scene.traverse((o) => {
+      if (!o.isMesh || o.geometry.type !== "BufferGeometry") return;
+      const box = new THREE.Box3().setFromObject(o);
+      if (!isFinite(box.max.y)) return;
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+      if (size.x > 4 && size.x < 9 && size.y > 3 && size.y < 8 && center.y > 1 && center.y < 6 && Math.hypot(center.x, center.z) < 36) chunky.push({ o, center, r: Math.min(size.x, size.y, size.z) * 0.46 });
+    });
+    chunky.forEach(({ o, center, r }) => {
+      o.visible = false;
+      const rock = new THREE.Mesh(new THREE.SphereGeometry(r, 28, 20), new THREE.MeshLambertMaterial({ map: moss, color: "#e7e2d8" }));
+      rock.position.copy(center);
+      root.add(rock);
+    });
+    PE.scene.traverse((o) => {
+      if (!o.isLight) return;
+      if (o.isDirectionalLight && o.intensity > 1) { o.color.set("#ffc98a"); o.intensity = 2.05; }
+      if (o.isHemisphereLight && o.intensity > 1) { o.color.set("#fff4e4"); o.groundColor.set("#b7d98a"); o.intensity = 1.2; }
+    });
+    if (PE.scene.fog && PE.scene.fog.color) PE.scene.fog.color.set("#f4ead8");
+    const frameMat = new THREE.MeshLambertMaterial({ color: "#6a3048" });
+    const glowMat = new THREE.MeshLambertMaterial({ color: "#fff3c4", emissive: "#ffd56a", emissiveIntensity: 0.85 });
+    [[-4.5, 2.5, 0], [4.5, 2.5, 0], [-4.5, -4.5, Math.PI], [4.5, -4.5, Math.PI], [0, -1.5, 0]].forEach(([x, z, yaw]) => {
+      [3.2, 5.4].forEach((y) => {
+        const win = new THREE.Group();
+        const frame = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.86, 0.08), frameMat);
+        const glow = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.58, 0.1), glowMat);
+        glow.position.z = 0.02;
+        win.add(frame); win.add(glow);
+        const out = 1.55;
+        win.position.set(x + Math.sin(yaw) * out, y, z + Math.cos(yaw) * out);
+        win.rotation.y = yaw;
+        root.add(win);
+      });
+    });
+    const cloth = new THREE.MeshLambertMaterial({ color: "#ff4f93", side: THREE.DoubleSide });
+    [[-4.5, 9.1, 4.1], [4.5, 9.1, 4.1], [-6.1, 9.1, -4.5], [6.1, 9.1, -4.5]].forEach(([x, y, z]) => {
+      const ban = new THREE.Group();
+      const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.15, 1.9), cloth);
+      flag.position.y = -1.05;
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.35, 6), new THREE.MeshLambertMaterial({ color: "#ffe27a" }));
+      ban.add(pole); ban.add(flag);
+      ban.position.set(x, y, z);
+      root.add(ban);
+      gfx.sways.push(ban);
+    });
+    const pathMat = new THREE.MeshLambertMaterial({ map: paving, color: "#ffffff" });
+    const walk = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 16), pathMat);
+    walk.rotation.x = -Math.PI / 2;
+    walk.position.set(0, 0.07, 16);
+    root.add(walk);
+    if (bridge) {
+      const iron = new THREE.MeshLambertMaterial({ color: "#3e4650" });
+      for (let i = 0; i < 4; i++) {
+        const band = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.08, 0.16), iron);
+        band.position.set(0, 0.28, -1.1 + i * 0.7);
+        bridge.add(band);
+      }
     }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-    const foam = new THREE.Points(geo, new THREE.PointsMaterial({ color: "#ffffff", size: 0.2 }));
+    function ao(x, z, r) {
+      const m = new THREE.Mesh(new THREE.CircleGeometry(1, 14), new THREE.MeshBasicMaterial({ color: "#243018", transparent: true, opacity: 0.16, depthWrite: false }));
+      m.rotation.x = -Math.PI / 2;
+      m.position.set(x, (PE.groundH ? PE.groundH(x, z) : 0) + 0.04, z);
+      m.scale.setScalar(r);
+      root.add(m);
+      return m;
+    }
+    ao(0, -1, 4.4);
+    ao(0, 6.4, 1.5);
+    const dog = PE.scene.getObjectByName("v34-biscuit");
+    gfx.dog = dog;
+    function watch(mesh, speed) {
+      if (!mesh || !mesh.material || mesh.material.userData.v47scroll) return;
+      mesh.material.map = caustic;
+      mesh.material.needsUpdate = true;
+      mesh.material.userData.v47scroll = 1;
+      gfx.scrolls.push({ map: caustic, speed });
+    }
+    PE.scene.traverse((o) => {
+      if ((o.name === "moat-ripple" || o.name === "stream-spark") && o.material && o.material.map && !o.material.userData.v47scroll) {
+        o.material.userData.v47scroll = 1;
+        gfx.scrolls.push({ map: o.material.map, speed: 0.16 });
+      }
+      if (o.name === "stream-fall" && o.material && o.material.map) gfx.scrolls.push({ map: o.material.map, speed: 0.35 });
+    });
+    const padMat = new THREE.MeshLambertMaterial({ color: "#2f9a45" });
+    const bloomMat = new THREE.MeshLambertMaterial({ color: "#ff7ab8" });
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2 + 0.4;
+      const x = Math.cos(a) * 6.4;
+      const z = -1 + Math.sin(a) * 6.4;
+      const pad = new THREE.Mesh(new THREE.CircleGeometry(0.42, 8), padMat);
+      pad.rotation.x = -Math.PI / 2;
+      pad.position.set(x, 0.36, z);
+      const bloom = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), i % 2 ? bloomMat : new THREE.MeshLambertMaterial({ color: "#ffe27a" }));
+      bloom.position.set(x, 0.48, z);
+      root.add(pad); root.add(bloom);
+    }
+    const foamCount = 48;
+    const foamPos = new Float32Array(foamCount * 3);
+    const fall = PE.scene.getObjectByName("stream-fall");
+    const fp = new THREE.Vector3(-8.7, 0.5, -9.7);
+    if (fall) fall.getWorldPosition(fp);
+    for (let i = 0; i < foamCount; i++) {
+      const edge = i < 24;
+      const a = (i / 24) * Math.PI * 2;
+      if (edge) {
+        const rad = i % 2 ? 7.9 : 12.1;
+        foamPos[i * 3] = Math.cos(a) * rad;
+        foamPos[i * 3 + 1] = 0.4;
+        foamPos[i * 3 + 2] = -1 + Math.sin(a) * rad;
+      } else {
+        foamPos[i * 3] = fp.x + (Math.random() - 0.5) * 2.4;
+        foamPos[i * 3 + 1] = fp.y + Math.random() * 1.2;
+        foamPos[i * 3 + 2] = fp.z + (Math.random() - 0.5) * 2.4;
+      }
+    }
+    const foamGeo = new THREE.BufferGeometry();
+    foamGeo.setAttribute("position", new THREE.BufferAttribute(foamPos, 3));
+    const foam = new THREE.Points(foamGeo, new THREE.PointsMaterial({ color: "#ffffff", size: 0.28 }));
     foam.name = "v47-moat-foam";
-    PE.scene.add(foam);
+    root.add(foam);
+    const grassMat = new THREE.MeshLambertMaterial({ color: "#63b85a" });
+    const grass = new THREE.InstancedMesh(new THREE.CircleGeometry(1, 8), grassMat, 8);
+    const dummy = new THREE.Object3D();
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const rad = 15 + (i % 3);
+      const x = Math.cos(a) * rad;
+      const z = -1 + Math.sin(a) * rad;
+      const wet = PE.stream && PE.stream.inDeep && PE.stream.inDeep(x, z);
+      dummy.position.set(x, (PE.groundH ? PE.groundH(x, z) : 0) + 0.05, z);
+      dummy.rotation.set(-Math.PI / 2, 0, 0);
+      dummy.scale.setScalar(wet ? 0 : 1.4 + (i % 3) * 0.6);
+      dummy.updateMatrix();
+      grass.setMatrixAt(i, dummy.matrix);
+    }
+    root.add(grass);
+    const petalColors = ["#ff5fa2", "#ffd24a", "#ffffff", "#c084fc"];
+    petalColors.forEach((color, ci) => {
+      const flowers = new THREE.InstancedMesh(new THREE.SphereGeometry(0.28, 7, 5), new THREE.MeshLambertMaterial({ color }), 10);
+      for (let i = 0; i < 10; i++) {
+        const n = ci * 10 + i;
+        const a = (n / 40) * Math.PI * 2;
+        const rad = 13.6 + (n % 4) * 0.45;
+        const x = Math.cos(a) * rad;
+        const z = -1 + Math.sin(a) * rad;
+        const wet = PE.stream && PE.stream.inDeep && PE.stream.inDeep(x, z);
+        dummy.position.set(x, (PE.groundH ? PE.groundH(x, z) : 0) + 0.28, z);
+        dummy.rotation.set(0, 0, 0);
+        dummy.scale.set(wet ? 0 : 1.15, wet ? 0 : 0.45, wet ? 0 : 1.15);
+        dummy.updateMatrix();
+        flowers.setMatrixAt(i, dummy.matrix);
+      }
+      root.add(flowers);
+    });
+    for (let i = 0; i < 4; i++) {
+      const a = i / 4 * Math.PI * 2;
+      const cloud = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.9, depthWrite: false }));
+      cloud.scale.set(5.5, 1.3, 2.6);
+      cloud.position.set(Math.cos(a) * 26, 15 + (i % 3), -1 + Math.sin(a) * 22);
+      root.add(cloud);
+      gfx.clouds.push(cloud);
+    }
+    if (PE.princess) {
+      const trim = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.018, 8, 20), new THREE.MeshLambertMaterial({ color: "#ffe27a", emissive: "#ffd24a", emissiveIntensity: 0.7 }));
+      trim.rotation.x = Math.PI / 2;
+      trim.position.y = 1.2;
+      PE.princess.add(trim);
+      const shine = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), new THREE.MeshLambertMaterial({ color: "#fff6c4", emissive: "#fff1a0", emissiveIntensity: 0.95 }));
+      shine.position.set(0.1, 1.52, 0.08);
+      PE.princess.add(shine);
+    }
+    if (dog) {
+      let head = null;
+      let best = -999;
+      dog.traverse((o) => {
+        if (o.isMesh && o.geometry && o.geometry.type === "SphereGeometry" && o.position.y > best) { best = o.position.y; head = o; }
+      });
+      if (head && head.geometry.parameters) {
+        const r = head.geometry.parameters.radius || 0.1;
+        const eyeMat = new THREE.MeshLambertMaterial({ color: "#1b1b1b" });
+        [-1, 1].forEach((s) => {
+          const eye = new THREE.Mesh(new THREE.SphereGeometry(r * 0.09, 8, 6), eyeMat);
+          eye.position.set(s * r * 0.28, r * 0.1, r * 0.78);
+          head.add(eye);
+          const dot = new THREE.Mesh(new THREE.SphereGeometry(r * 0.06, 6, 4), new THREE.MeshBasicMaterial({ color: "#ffffff" }));
+          dot.position.set(0, 0, r * 0.12);
+          eye.add(dot);
+        });
+      }
+      const tail = new THREE.Group();
+      const fur = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.05, 0.22, 6), new THREE.MeshLambertMaterial({ color: "#e98e35" }));
+      fur.position.y = 0.08;
+      tail.add(fur);
+      tail.position.set(0, 0.16, -0.16);
+      dog.add(tail);
+      gfx.wags.push(tail);
+    }
   }
   ui();
   bag();
