@@ -283,9 +283,10 @@ mark.learn-hit{background:#ffe08a;border-radius:6px;padding:0 3px}
 #learn-card.short{max-height:36vh}
 .learn-choices.nat{grid-template-columns:1fr 1fr 1fr}
 #learn-card.short button{min-height:34px;padding:6px 8px}
-.g-stage{position:relative;height:176px;margin:4px 0 8px}
-.g-ruler{position:absolute;left:4px;bottom:0;width:64px;height:168px;border-left:3px solid #4a2c6f}
-.g-ruler b{position:absolute;left:8px;font-size:10px;line-height:10px;font-weight:700;transform:translateY(5px)}
+.g-stage{position:relative;height:208px;margin:4px 0 6px}
+.g-ruler{position:absolute;left:4px;bottom:0;width:72px;height:196px;border-left:3px solid #4a2c6f}
+.g-ruler b{position:absolute;left:14px;font-size:13px;line-height:13px;font-weight:700;transform:translateY(6px)}
+.g-ruler i{position:absolute;left:0;width:10px;border-top:2px solid #4a2c6f}
 .g-plant{position:absolute;left:78px;bottom:0;width:36px;display:flex;flex-direction:column;align-items:center}
 .g-head{width:26px;height:26px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff4b0,#f0b429 58%,#d98416);box-shadow:0 0 0 3px #e07a18;flex:0 0 auto}
 .g-stem{width:12px;background:linear-gradient(#67c45a,#2f7d34);border-radius:6px 6px 2px 2px;flex:0 0 auto}
@@ -722,7 +723,12 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
       gfx.wags.forEach((w) => { w.rotation.z = Math.sin(gfx.t * 7) * 0.55; });
       gfx.clouds.forEach((c, i) => { c.position.x += Math.sin(gfx.t * 0.15 + i) * step * 0.35; });
       natureBobs.forEach((g, i) => {
-        g.position.y = (g.userData.baseY || 0) + Math.sin(clockMs / 280 + i) * 0.16;
+        const base = g.userData.baseY || 0;
+        if (g.userData.kind === "fish") {
+          const wave = Math.sin(clockMs / 420 + i);
+          g.position.y = base + Math.max(0, wave) * 0.85;
+          g.position.x = g.userData.baseX + Math.sin(clockMs / 520 + i) * 0.35;
+        } else g.position.y = base + Math.sin(clockMs / 320 + i) * 0.08;
       });
     }
     const due = pending.filter((job) => job.at <= clockMs);
@@ -796,12 +802,14 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
   let gfx = null;
   function natureQuestion() {
     const w = worldBag().nature;
-    const more = w.frog - w.fish;
-    const choices = [String(more), "0", String(more + 1), String(more + 2), String(w.frog), String(w.fish)];
+    const moreFrogs = w.frog - w.fish;
+    const more = Math.abs(moreFrogs);
+    const prompt = moreFrogs >= 0 ? "How many more frogs than fish?" : "How many more fish than frogs?";
+    const choices = [String(more), "0", String(more + 1), String(more + 2), String(w.frog + w.fish)];
     const unique = [];
     choices.forEach((c) => { if (!unique.includes(c)) unique.push(c); });
-    while (unique.length < 4) unique.push(String(10 + unique.length));
-    return { prompt: "How many more frogs than fish?", choices: unique.slice(0, 4), answer: 0, skill: "data" };
+    while (unique.length < 4) unique.push(String(8 + unique.length));
+    return { prompt, choices: unique.slice(0, 4), answer: 0, skill: "data" };
   }
   function activityNature() {
     placeNature();
@@ -812,12 +820,15 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
   function activityGarden() {
     const g = gardenNow();
     placeGarden(g.cm);
-    const rulerH = 168;
+    const rulerH = 196;
     const total = Math.round((g.cm / 16) * rulerH);
     const head = 26;
     const stem = Math.max(4, total - head);
     const ticks = [];
-    for (let n = 0; n <= 16; n++) ticks.push(`<b style="bottom:${(n / 16) * 100}%">${n}</b>`);
+    for (let n = 0; n <= 16; n++) {
+      const at = `bottom:${(n / 16) * 100}%`;
+      ticks.push(n % 2 === 0 ? `<b style="${at}">${n}</b>` : `<i style="${at}"></i>`);
+    }
     const asking = gardenAsk === "grew"
       ? { prompt: "How much did it grow since Day 2?", choices: gardenChoices(g.grew, "cm"), attr: "gg" }
       : { prompt: "How tall is the sunflower?", choices: gardenChoices(g.cm, "cm"), attr: "gq" };
@@ -874,8 +885,8 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
         const plant = PE.scene && PE.scene.getObjectByName("v47-plant");
         if (plant) {
           const p = plant.position;
-          cam.position.set(p.x + 1.1, p.y + 1.5, p.z + 4.4);
-          return orig(p.x, p.y + 0.15, p.z);
+          cam.position.set(p.x + 2.8, p.y + 2.8, p.z + 8.6);
+          return orig(p.x, p.y + 1.2, p.z);
         }
       }
       if (mode === "nature") {
@@ -891,7 +902,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
       if (!worldBag().gardenDay) plantGarden(addDays(today(), -3));
       const g = gardenNow();
       placeGarden(g.cm);
-      if (PE.teleport) PE.teleport(15.4, 11.6);
+      if (PE.teleport) PE.teleport(16.8, 13.4);
       hookLook();
     }
     if (name === "nature") {
@@ -912,41 +923,117 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     m.name = name;
     PE.scene.add(m);
   }
+  let natureSig = "";
+  function makeFrog(THREE) {
+    const g = new THREE.Group();
+    const skin = new THREE.MeshLambertMaterial({ color: "#3cb44b" });
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.38, 10, 8), skin);
+    body.scale.set(1.2, 0.72, 1.25);
+    body.position.y = 0.28;
+    g.add(body);
+    const white = new THREE.MeshLambertMaterial({ color: "#f7fff4" });
+    const dark = new THREE.MeshLambertMaterial({ color: "#1c1c1c" });
+    [-1, 1].forEach((s) => {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), white);
+      eye.position.set(s * 0.16, 0.52, 0.1);
+      const dot = new THREE.Mesh(new THREE.SphereGeometry(0.055, 6, 4), dark);
+      dot.position.set(0, 0.03, 0.09);
+      eye.add(dot);
+      g.add(eye);
+    });
+    [[-0.28, 0.12, 0.18], [0.28, 0.12, 0.18], [-0.2, 0.1, -0.2], [0.2, 0.1, -0.2]].forEach(([x, y, z]) => {
+      const leg = new THREE.Mesh(new THREE.SphereGeometry(0.11, 6, 5), skin);
+      leg.scale.set(1.5, 0.5, 0.85);
+      leg.position.set(x, y, z);
+      g.add(leg);
+    });
+    const pad = new THREE.Mesh(new THREE.CircleGeometry(0.55, 12), new THREE.MeshLambertMaterial({ color: "#2e8f42", side: THREE.DoubleSide }));
+    pad.rotation.x = -Math.PI / 2;
+    pad.position.y = 0.03;
+    g.add(pad);
+    return g;
+  }
+  function makeFish(THREE) {
+    const g = new THREE.Group();
+    const gold = new THREE.MeshLambertMaterial({ color: "#f0a020" });
+    const body = new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 8), gold);
+    body.scale.set(1.55, 0.8, 0.7);
+    body.position.y = 0.36;
+    g.add(body);
+    const tail = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.34, 4), gold);
+    tail.rotation.z = Math.PI / 2;
+    tail.position.set(-0.46, 0.36, 0);
+    g.add(tail);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.055, 6, 4), new THREE.MeshLambertMaterial({ color: "#1c1c1c" }));
+    eye.position.set(0.26, 0.42, 0.1);
+    g.add(eye);
+    return g;
+  }
+  function makeBloom(THREE) {
+    const g = new THREE.Group();
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.06, 0.62, 6), new THREE.MeshLambertMaterial({ color: "#2f8f3a" }));
+    stem.position.y = 0.31;
+    g.add(stem);
+    const petal = new THREE.MeshLambertMaterial({ color: "#ff7ac8" });
+    for (let i = 0; i < 6; i++) {
+      const p = new THREE.Mesh(new THREE.SphereGeometry(0.11, 6, 5), petal);
+      p.scale.set(1.35, 0.5, 0.7);
+      const a = (i / 6) * Math.PI * 2;
+      p.position.set(Math.cos(a) * 0.15, 0.7, Math.sin(a) * 0.15);
+      g.add(p);
+    }
+    const heart = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), new THREE.MeshLambertMaterial({ color: "#ffe14a" }));
+    heart.position.y = 0.72;
+    g.add(heart);
+    return g;
+  }
+  function clearNature() {
+    const gone = [];
+    PE.scene.traverse((o) => { if (o.name && o.name.indexOf("v47-spot-") === 0) gone.push(o); });
+    gone.forEach((o) => { if (o.parent) o.parent.remove(o); });
+    natureBobs = [];
+  }
   function placeNature() {
-    if (!PE.stream || !PE.stream.samples || !PE.gfx43 || PE.scene.getObjectByName("v47-spot-frog")) return;
+    if (!PE.stream || !PE.stream.samples || !PE.gfx43) return;
     const THREE = PE.gfx43.THREE;
+    const w = worldBag().nature;
+    if (w.frog + w.fish + w.flower === 0) { w.frog = 2; w.fish = 1; w.flower = 1; persist(); }
+    const sig = [w.frog, w.fish, w.flower].join(",");
+    if (sig === natureSig && PE.scene.getObjectByName("v47-spot-frog")) return;
+    natureSig = sig;
+    clearNature();
     const samples = PE.stream.samples();
     if (!samples.length) return;
     let best = samples[0], score = -1e9;
     samples.forEach((s) => { const sc = s.z - Math.abs(s.x) * 0.15; if (sc > score && s.z > 4 && s.z < 28) { score = sc; best = s; } });
-    const y = (PE.groundH ? PE.groundH(best.x, best.z) : 0);
+    const y = PE.groundH ? PE.groundH(best.x, best.z) : 0;
     const nx = best.nx || 1, nz = best.nz || 0;
-    [["frog", -2.1, "#3cb44b"], ["fish", 0, "#3d8bfd"], ["flower", 2.1, "#ff7ac8"]].forEach(([kind, side, color]) => {
-      const group = new THREE.Group();
-      group.name = "v47-spot-" + kind;
-      const radius = (kind === "flower" ? 0.28 : 0.55) * 1.75;
-      const body = new THREE.Mesh(new THREE.SphereGeometry(radius, 14, 12), new THREE.MeshLambertMaterial({ color }));
-      body.position.y = radius + 0.15;
-      group.add(body);
-      const glow = new THREE.Mesh(new THREE.CircleGeometry(radius * 1.7, 18), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
-      glow.rotation.x = -Math.PI / 2;
-      glow.position.y = 0.06;
-      group.add(glow);
-      if (kind === "flower") {
-        const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 1.1, 6), new THREE.MeshLambertMaterial({ color: "#2f8f3a" }));
-        stem.position.y = 0.55;
-        group.add(stem);
-        body.position.y = 1.25;
-      }
-      const px = best.x + nx * 2.6 + nz * side;
-      const pz = best.z + nz * 2.6 - nx * side;
-      group.position.set(px, y, pz);
-      group.userData.baseY = y;
+    const lineup = [];
+    for (let i = 0; i < w.frog; i++) lineup.push("frog");
+    for (let i = 0; i < w.fish; i++) lineup.push("fish");
+    for (let i = 0; i < w.flower; i++) lineup.push("flower");
+    const glowColor = { frog: "#7dff9a", fish: "#ffd36a", flower: "#ff9ad2" };
+    lineup.forEach((kind, i) => {
+      const group = kind === "frog" ? makeFrog(THREE) : kind === "fish" ? makeFish(THREE) : makeBloom(THREE);
+      const index = lineup.slice(0, i + 1).filter((k) => k === kind).length;
+      group.name = index === 1 ? "v47-spot-" + kind : "v47-spot-" + kind + "-" + index;
+      const side = (i - (lineup.length - 1) / 2) * 1.7;
+      const into = kind === "fish" ? -0.9 : 0.35;
+      const px = best.x + nx * (2.4 + into) + nz * side;
+      const pz = best.z + nz * (2.4 + into) - nx * side;
+      const gy = PE.groundH ? PE.groundH(px, pz) : y;
+      group.position.set(px, gy, pz);
+      group.userData.baseY = gy;
+      group.userData.baseX = px;
       group.userData.kind = kind;
+      const glow = new THREE.Mesh(new THREE.CircleGeometry(0.62, 16), new THREE.MeshBasicMaterial({ color: glowColor[kind], transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide }));
+      glow.rotation.x = -Math.PI / 2;
+      glow.position.y = 0.05;
+      group.add(glow);
       PE.scene.add(group);
       natureBobs.push(group);
     });
-    natureAnchor = { x: best.x + nx * 2.2, z: best.z + nz * 2.2 };
+    natureAnchor = { x: best.x + nx * 2.4, z: best.z + nz * 2.4 };
     bindPicks();
   }
   function bindPicks() {
@@ -1181,12 +1268,6 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
       PE.scene.add(post);
     }
     try { snowRoofs(); } catch (err) { /* a mesh without bounds is skipped */ }
-    [[-4.5, 10.4, 2.5, 2.05], [4.5, 10.4, 2.5, 2.05], [-4.5, 10.4, -4.5, 1.8], [4.5, 10.4, -4.5, 1.8], [0, 11.6, -1.5, 2.4]].forEach(([x, y, z, r]) => {
-      const cap = new THREE.Mesh(new THREE.ConeGeometry(r, 2.3, 12), new THREE.MeshBasicMaterial({ color: "#ffffff" }));
-      cap.position.set(x, y, z);
-      cap.name = "v47-roof-snow";
-      PE.scene.add(cap);
-    });
     snowFall();
   }
   function snowRoofs() {
@@ -1195,7 +1276,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     const box = new THREE.Box3();
     const size = new THREE.Vector3();
     const center = new THREE.Vector3();
-    const snowMat = new THREE.MeshBasicMaterial({ color: "#ffffff" });
+    const snowMat = new THREE.MeshLambertMaterial({ color: "#f3f7ff" });
     let n = 0;
     PE.scene.updateMatrixWorld(true);
     const list = [];
@@ -1208,20 +1289,28 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
       box.getSize(size);
       box.getCenter(center);
       if (Math.hypot(center.x, center.z) > 22) return;
+      if (PE.princess && Math.hypot(center.x - PE.princess.position.x, center.z - PE.princess.position.z) < 2.6) return;
+      if (Math.abs(center.x) < 1.8 && center.z > 5 && center.z < 22) return;
+      let parent = o.parent;
+      let onPerson = false;
+      while (parent) {
+        if (parent === PE.princess || parent.name === "v34-biscuit" || parent.name === "v35-biscuit") onPerson = true;
+        parent = parent.parent;
+      }
+      if (onPerson) return;
       const col = o.material && o.material.color;
       const green = col && col.g > col.r + 0.08 && col.g > 0.25;
       const cone = o.geometry.type === "ConeGeometry";
-      if (!cone && (size.x > 14 || size.z > 14 || size.y > 24)) return;
-      if (green && (size.y < 0.7 || size.y > 4)) return;
-      if (!green && !cone && size.y < 1.1) return;
-      let capR = 0.4;
-      let capH = 0.35;
-      if (cone) { capR = Math.min(1.85, Math.max(0.95, Math.min(size.x, size.z) * 0.62)); capH = 1.55; }
-      else if (green) { capR = 0.42; capH = 0.32; }
-      else if (size.y > 1.6 && Math.min(size.x, size.z) < 2.4) { capR = 0.5; capH = 0.4; }
-      else return;
-      const cap = new THREE.Mesh(new THREE.ConeGeometry(capR, capH, 8), snowMat);
-      cap.position.set(center.x, box.max.y - capH * 0.15, center.z);
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), snowMat);
+      if (cone && size.y > 1.2 && size.y < 8) {
+        const r = Math.min(size.x, size.z) * 0.18;
+        cap.scale.set(r, r * 0.42, r);
+        cap.position.set(center.x, box.max.y - r * 0.42, center.z);
+      } else if (green && size.y > 0.6 && size.y < 3.2 && size.x < 4) {
+        const r = Math.min(size.x, size.z) * 0.42;
+        cap.scale.set(r, r * 0.32, r);
+        cap.position.set(center.x, box.max.y - r * 0.08, center.z);
+      } else { return; }
       cap.name = "v47-roof-snow";
       PE.scene.add(cap);
       n++;
@@ -1577,22 +1666,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     const foam = new THREE.Points(foamGeo, new THREE.PointsMaterial({ color: "#ffffff", size: 0.28 }));
     foam.name = "v47-moat-foam";
     root.add(foam);
-    const grassMat = new THREE.MeshLambertMaterial({ color: "#63b85a" });
-    const grass = new THREE.InstancedMesh(new THREE.CircleGeometry(1, 8), grassMat, 8);
     const dummy = new THREE.Object3D();
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2;
-      const rad = 15 + (i % 3);
-      const x = Math.cos(a) * rad;
-      const z = -1 + Math.sin(a) * rad;
-      const wet = PE.stream && PE.stream.inDeep && PE.stream.inDeep(x, z);
-      dummy.position.set(x, (PE.groundH ? PE.groundH(x, z) : 0) + 0.05, z);
-      dummy.rotation.set(-Math.PI / 2, 0, 0);
-      dummy.scale.setScalar(wet ? 0 : 1.4 + (i % 3) * 0.6);
-      dummy.updateMatrix();
-      grass.setMatrixAt(i, dummy.matrix);
-    }
-    root.add(grass);
     const petalColors = ["#ff5fa2", "#ffd24a", "#ffffff", "#c084fc"];
     petalColors.forEach((color, ci) => {
       const flowers = new THREE.InstancedMesh(new THREE.SphereGeometry(0.28, 7, 5), new THREE.MeshLambertMaterial({ color }), 10);
@@ -1699,7 +1773,19 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     },
     parent: { hold, open: openParent, card: progress },
     lore: loreFor,
-    nature: { tap: tapNature, question: natureQuestion, where: () => natureAnchor },
+    nature: {
+      tap: tapNature,
+      question: natureQuestion,
+      where: () => natureAnchor,
+      setCounts: (counts) => {
+        const w = worldBag().nature;
+        ["frog", "fish", "flower"].forEach((k) => { if (counts[k] != null) w[k] = counts[k]; });
+        natureSig = "";
+        persist();
+        placeNature();
+        return Object.assign({}, w);
+      }
+    },
     garden: { plant: plantGarden, now: gardenNow },
     art: { add: addShape },
     sport: { point: sportPoint },

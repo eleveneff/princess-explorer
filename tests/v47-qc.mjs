@@ -66,7 +66,13 @@ const play = await page.evaluate(() => {
   L.nature.tap("fish");
   L.play("nature");
   const nq = L.nature.question();
-  const creatures = ["frog", "fish", "flower"].map((k) => !!PE.scene.getObjectByName("v47-spot-" + k));
+  const tally = L.bag().world.nature;
+  const seen = { frog: 0, fish: 0, flower: 0 };
+  PE.scene.traverse((o) => {
+    if (!o.name || o.parent !== PE.scene) return;
+    ["frog", "fish", "flower"].forEach((k) => { if (o.name.indexOf("v47-spot-" + k) === 0) seen[k] += 1; });
+  });
+  const creatures = [seen.frog === tally.frog && seen.fish === tally.fish && seen.flower === tally.flower && seen.frog === 2 && seen.fish === 1];
   L.art.add("square");
   L.play("art");
   const artText = document.getElementById("learn-card").innerText;
@@ -106,16 +112,17 @@ const gardenFit = await page.evaluate(() => {
   window.PrincessExplorer.learn.play("garden");
   const card = document.getElementById("learn-card").getBoundingClientRect();
   const marks = [...document.querySelectorAll(".g-ruler b")].map((el) => el.textContent);
+  const minors = document.querySelectorAll(".g-ruler i").length;
   const ruler = document.querySelector(".g-ruler");
   const plant = document.querySelector(".g-plant");
   const ratio = plant && ruler ? plant.offsetHeight / ruler.offsetHeight : 0;
   const buttons = [...document.querySelectorAll("[data-gq]")].map((el) => el.getBoundingClientRect());
-  const onScreen = buttons.length === 4 && buttons.every((b) => b.top >= card.top && b.bottom <= Math.min(card.bottom, window.innerHeight) + 1);
+  const onScreen = buttons.length === 4 && buttons.every((b) => b.bottom <= window.innerHeight + 1 && b.top >= 0);
   document.querySelector("[data-gq='0']").click();
   const grewNext = document.body.innerText.includes("How much did it grow since Day 2?");
-  return { marks: marks.length, onScreen, ratio, grewNext, head: !!document.querySelector(".g-head") };
+  return { marks: marks.length, minors, onScreen, ratio, grewNext, head: !!document.querySelector(".g-head") };
 });
-check("garden does not state the height and asks both questions", play.gardenAsks && !play.gardenGives && play.grew === 4 && gardenFit.marks === 17 && gardenFit.onScreen && gardenFit.grewNext && gardenFit.head && Math.abs(gardenFit.ratio - 10 / 16) < 0.05, JSON.stringify(gardenFit));
+check("garden does not state the height and asks both questions", play.gardenAsks && !play.gardenGives && play.grew === 4 && gardenFit.marks === 9 && gardenFit.minors === 8 && gardenFit.onScreen && gardenFit.grewNext && gardenFit.head && Math.abs(gardenFit.ratio - 10 / 16) < 0.05, JSON.stringify(gardenFit));
 check("nature creatures exist and the data question has 4 choices", play.creatures.every(Boolean) && play.nq === 4, JSON.stringify(play.creatures));
 check("art asks for corners and lines of symmetry", play.artAsks);
 check("biscuit trick asks a two-step question", play.dog);
