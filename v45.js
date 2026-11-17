@@ -179,6 +179,7 @@
       h.n++; h.t = Date.now(); ok ? h.c++ : h.w++;
     }
     if (!ok && type) v.miss[type] = (v.miss[type] || 0) + 1;
+    if (!ok && PE.learn && PE.learn.onWrong) PE.learn.onWrong({ skill: type || "word", id, source: "v45" });
     v.recent.unshift({ id, ok: !!ok, type: type || "practice", t: Date.now() });
     if (v.recent.length > 24) v.recent.length = 24;
     if (ok) v.quest.flags = v.quest.flags || {}, v.quest.flags.practiced = 1;
@@ -2337,7 +2338,14 @@
         openPanel("care");
       }
       if (t.id === "care-yes" && pendingBuy) {
-        const res = commit(pendingBuy.id);
+        const id = pendingBuy.id;
+        if (PE.learn && PE.learn.needsGate && PE.learn.needsGate(id)) {
+          pendingBuy = null;
+          document.getElementById("v45-panel").classList.remove("show");
+          PE.learn.openGate(id);
+          return;
+        }
+        const res = commit(id);
         pendingBuy = null;
         say(res.ok ? "Built! Coins left: " + res.score : res.reason === "short" ? "Not enough coins. Nothing was spent." : "Not built.");
         openPanel("care");
