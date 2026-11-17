@@ -68,11 +68,11 @@ check("published file still prices the castle gate at 10", html.includes("re.sco
 check("published file still totals the math gate at 20", html.includes("mathGate:{PAY:[6,7,7],TOTAL:20"));
 check("published file still charges wardrobe by the change count", html.includes("u.score=a()-d"));
 check("mini-game picker uses the same 1-change price line", html.includes('id="a35-cost"') && html.includes("${q.plural(C)} = ${C}"));
-check("version marker is v4.7", html.includes('content="v4.7"') && html.includes('version:"v4.7"'));
+check("version marker is v5.0", html.includes('content="v5.0"') && html.includes('version:"v5.0"'));
 
 const page = await open(null);
 const version = await page.evaluate(() => window.PrincessExplorer.version);
-check("runtime version is v4.7", version === "v4.7", version);
+check("runtime version is v5.0", version === "v5.0", version);
 
 const poor = await page.evaluate(() => {
   const PE = window.PrincessExplorer;
