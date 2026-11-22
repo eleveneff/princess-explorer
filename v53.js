@@ -876,9 +876,9 @@
     bookcase.add(proud);
     downG.add(bookcase);
     if (secret) swingCase(true);
-    const plaque = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.78), new THREE.MeshLambertMaterial({ map: tex(THREE, signCanvas("Pull the cheerful book.")), side: THREE.DoubleSide }));
-    plaque.position.set(12.6, 2.05, 6.05);
-    plaque.rotation.y = Math.PI;
+    const plaque = new THREE.Mesh(new THREE.PlaneGeometry(2.1, 0.66), new THREE.MeshLambertMaterial({ map: tex(THREE, signCanvas("Pull the cheerful book.")) }));
+    plaque.position.set(16.16, 2.15, 5.55);
+    plaque.rotation.y = -Math.PI / 2;
     downG.add(plaque);
 
     const dog = new THREE.Group();
@@ -1507,7 +1507,7 @@
       kitchen: [7.4, y + 2.45, 4.45, 13.9, y + 0.75, 8.2],
       biscuit: [-8.2, y + 2.4, 12.5, -11.4, y + 0.9, 10.2],
       trophy: [8.2, y + 2.4, 12.5, 10.6, y + 1.2, 10.2],
-      tunnel: [lx - 2.8, y + 1.25, lz + 0.55, lx + 7, y + 0.35, lz],
+      tunnel: [lx - 4.0, y + 0.85, lz + 0.28, lx + 7, y + 1.85, lz],
       library: [37.4, 0.15, 11.15, 33.5, -1.35, 6.7],
       bedroom: [-7.4, y + 2.2, 5.55, -12.2, y + 1.0, 8.7],
       studio: [8.4, y + 2.15, 9.8, 13.0, y + 1.15, 6.2],
