@@ -6,6 +6,7 @@ import { createRequire } from "module";
 import http from "http";
 import fs from "fs";
 import path from "path";
+import { execFileSync } from "child_process";
 
 const require = createRequire(import.meta.url);
 const puppeteer = require("/tmp/pe-tools/node_modules/puppeteer-core");
@@ -100,16 +101,25 @@ for (let i = 0; i < 36; i++) {
 }
 await fresh.keyboard.up("KeyW");
 await fresh.keyboard.press("e");
-await new Promise((r) => setTimeout(r, 400));
-const gate = await fresh.evaluate(() => {
-  const L = window.PrincessExplorer.learn;
-  const q = L.gate.current();
-  const card = document.getElementById("learn-card");
-  return { open: L.ui.open(), n: L.gate.index() >= 0, total: document.querySelectorAll("#learn-card button[data-choice]").length, of3: !!(card && /of 3/.test(card.innerText)), prompt: q && q.prompt, answer: q && q.answer, key: window.PE_V53.lastKey || null, score: window.PrincessExplorer.state().score, walked: null };
+await new Promise((r) => setTimeout(r, 300));
+const ask = await fresh.evaluate(() => {
+  const bar = document.getElementById("prompt");
+  const s = window.PrincessExplorer.state();
+  return { open: window.PrincessExplorer.learn.ui.open(), note: (document.getElementById("prompt-text") || {}).textContent || "", shown: bar && !bar.classList.contains("hidden"), score: s.score, upper: !!(s.v45 && s.v45.care.owned.upper), walked: null };
 });
-gate.walked = walked;
-check("E at the stair opens exactly a 3-question gate", gate.open && gate.total === 4 && gate.of3, JSON.stringify(gate));
-await fresh.screenshot({ path: path.join(shot, "v53-gate.png") });
+ask.walked = walked;
+check("E at the stair asks to spend 40 and does not open a quiz", !ask.open && ask.shown && /40/.test(ask.note) && /press e/i.test(ask.note) && ask.score === 80 && !ask.upper, JSON.stringify(ask));
+await fresh.keyboard.press("e");
+await new Promise((r) => setTimeout(r, 300));
+const paid = await fresh.evaluate(() => {
+  const s = window.PrincessExplorer.state();
+  return { open: window.PrincessExplorer.learn.ui.open(), score: s.score, upper: !!s.v45.care.owned.upper };
+});
+check("a second E spends 40 once and opens the stair", !paid.open && paid.upper && paid.score === 40, JSON.stringify(paid));
+await fresh.keyboard.press("e");
+await new Promise((r) => setTimeout(r, 200));
+const stay = await fresh.evaluate(() => window.PrincessExplorer.state().score);
+check("another E at the stair does not charge again", stay === 40, String(stay));
 
 async function pick(page, index) {
   await page.evaluate((index) => {
@@ -117,7 +127,23 @@ async function pick(page, index) {
     if (btn) btn.click();
   }, index);
 }
-const before = await fresh.evaluate(() => window.PrincessExplorer.state().score);
+await fresh.evaluate(() => {
+  const PE = window.PrincessExplorer;
+  const ic = PE.v3.castle.IC;
+  PE.princess.position.set(ic.x + 14.2, 0, ic.z + 8.2);
+});
+await new Promise((r) => setTimeout(r, 250));
+await fresh.keyboard.press("e");
+await new Promise((r) => setTimeout(r, 400));
+const gate = await fresh.evaluate(() => {
+  const L = window.PrincessExplorer.learn;
+  const q = L.gate.current();
+  const card = document.getElementById("learn-card");
+  return { open: L.ui.open(), total: document.querySelectorAll("#learn-card button[data-choice]").length, of3: !!(card && /of 3/.test(card.innerText)), prompt: q && q.prompt, answer: q && q.answer, score: window.PrincessExplorer.state().score };
+});
+check("E on the green book opens a 3-question passage quiz", gate.open && gate.total === 4 && gate.of3 && gate.score === 40, JSON.stringify(gate));
+await fresh.screenshot({ path: path.join(shot, "v53-bookcase-quiz.png") });
+const before = gate.score;
 await pick(fresh, gate.answer === 0 ? 1 : 0);
 await new Promise((r) => setTimeout(r, 200));
 const tutor = await fresh.evaluate(() => {
@@ -141,7 +167,6 @@ const practiceScore = await fresh.evaluate(() => {
   return { before, after: window.PrincessExplorer.state().score, open: window.PrincessExplorer.learn.ui.open() };
 });
 check("practice does not change coins", practiceScore.after === practiceScore.before, JSON.stringify(practiceScore));
-
 let guard = 0;
 while (guard < 4) {
   const q = await fresh.evaluate(() => {
@@ -153,26 +178,41 @@ while (guard < 4) {
   await new Promise((r) => setTimeout(r, 250));
   guard++;
 }
-const bought = await fresh.evaluate(() => {
+const opened = await fresh.evaluate(() => {
   const s = window.PrincessExplorer.state();
-  return { score: s.score, upper: !!(s.v45 && s.v45.care && s.v45.care.owned && s.v45.care.owned.upper), price: window.PrincessExplorer.v53.price };
+  return { score: s.score, secret: window.PrincessExplorer.v53.secret(), room: window.PrincessExplorer.v53.room(), upper: !!s.v45.care.owned.upper };
 });
-check("three right answers buy the upper floor for 40", bought.upper && bought.score === before - 40 && bought.price === 40, JSON.stringify(bought));
+check("three right answers open the passage and do not spend coins", opened.secret && (opened.room === "tunnel" || opened.room === "library") && opened.score === 40 && opened.upper, JSON.stringify(opened));
 
-await fresh.evaluate(() => {
+await fresh.evaluate(() => window.PrincessExplorer.save());
+const keptRaw = await fresh.evaluate(() => localStorage.getItem("princess-explorer-save-v1"));
+const again = await boot(JSON.parse(keptRaw));
+await enterFromBridge(again);
+await hold(again, "KeyW", 450);
+await again.keyboard.press("e");
+await new Promise((r) => setTimeout(r, 250));
+const free = await again.evaluate(() => {
+  const s = window.PrincessExplorer.state();
+  const bar = document.getElementById("prompt");
+  return { score: s.score, upper: !!s.v45.care.owned.upper, open: window.PrincessExplorer.learn.ui.open(), spend: bar && !bar.classList.contains("hidden") && /spend 40/i.test((document.getElementById("prompt-text") || {}).textContent || ""), secret: !!(s.v53 && s.v53.secret) };
+});
+check("after reload the stair is free and the passage stays open", free.score === 40 && free.upper && !free.open && !free.spend && free.secret, JSON.stringify(free));
+await again.evaluate(() => {
   const PE = window.PrincessExplorer;
   const ic = PE.v3.castle.IC;
   PE.princess.position.set(ic.x + 14.2, 0, ic.z + 8.2);
 });
 await new Promise((r) => setTimeout(r, 200));
-await fresh.keyboard.press("e");
+await again.keyboard.press("e");
 await new Promise((r) => setTimeout(r, 300));
-const lib = await fresh.evaluate(() => ({
+const againBook = await again.evaluate(() => ({
+  open: window.PrincessExplorer.learn.ui.open(),
   secret: window.PrincessExplorer.v53.secret(),
   room: window.PrincessExplorer.v53.room(),
   score: window.PrincessExplorer.state().score
 }));
-check("E on the bookcase opens the secret library without coins", lib.secret && (lib.room === "tunnel" || lib.room === "library") && lib.score === bought.score, JSON.stringify(lib));
+check("the bookcase stays open after reload and does not quiz again", !againBook.open && againBook.secret && againBook.score === 40, JSON.stringify(againBook));
+await again.close();
 await fresh.evaluate(() => {
   const PE = window.PrincessExplorer;
   const ic = PE.v3.castle.IC;
@@ -184,7 +224,7 @@ await fresh.screenshot({ path: path.join(shot, "v53-bookcase.png") });
 
 const calls = await fresh.evaluate(() => window.PrincessExplorer.renderer.info.render.calls);
 console.log("DRAW_CALLS", calls);
-check("indoor frame stays within the draw budget", calls > 0 && calls < 380, String(calls));
+check("indoor frame stays within the draw budget", calls > 0 && calls < 310, String(calls));
 
 const terrace = await fresh.evaluate(() => {
   const s = window.PrincessExplorer.state();
@@ -199,21 +239,30 @@ const spots = [
   ["v53-ballroom", -12, 0, 5.6],
   ["v53-dining", 12, 0, 6.6],
   ["v53-tunnel", 22, -2.2, 8.1],
-  ["v53-library", 34, -2.2, 8],
+  ["v53-library", 34.5, -2.2, 7.4],
   ["v53-landing", 0, 4.2, 6.2],
   ["v53-bedroom", -12, 4.2, 9],
   ["v53-studio", 12, 4.2, 8],
-  ["v53-veranda", 0, 4.2, 17.5]
+  ["v53-veranda", 0, 4.2, 17.2],
+  ["v53-veranda-side", 1.2, 4.2, 18.4]
 ];
+for (const k of ["KeyW", "KeyA", "KeyS", "KeyZ", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]) await fresh.keyboard.up(k);
 for (const [name, x, y, z] of spots) {
-  await fresh.evaluate((x, y, z) => {
+  await fresh.evaluate((x, y, z, name) => {
     const PE = window.PrincessExplorer;
     const ic = PE.v3.castle.IC;
+    PE.v53.angle = name === "v53-veranda-side" ? 1 : 0;
+    PE.v53.lock = { x: ic.x + x, y: y, z: ic.z + z };
     PE.princess.position.set(ic.x + x, y, ic.z + z);
     PE.snapCamera && PE.snapCamera();
-  }, x, y, z);
-  await new Promise((r) => setTimeout(r, name === "v53-veranda" ? 1200 : 400));
+  }, x, y, z, name);
+  await new Promise((r) => setTimeout(r, name.indexOf("veranda") >= 0 ? 1300 : 450));
   await fresh.screenshot({ path: path.join(shot, name + ".png") });
+  if (name === "v53-veranda" || name === "v53-veranda-side") {
+    const sky = JSON.parse(execFileSync("python3", ["-c", "import json\nfrom PIL import Image\nim=Image.open(r'''" + path.join(shot, name + ".png") + "''').convert('RGB')\nw,h=im.size\npts={'tl':(int(w*0.12),int(h*0.2)),'tc':(int(w*0.5),int(h*0.16)),'tr':(int(w*0.84),int(h*0.2)),'mid':(int(w*0.5),int(h*0.42))}\nprint(json.dumps({k:list(im.getpixel(v)) for k,v in pts.items()}))\n"], { encoding: "utf8" }));
+    const dark = (rgb) => rgb[0] + rgb[1] + rgb[2] < 140 || (rgb[2] > rgb[0] + 20 && rgb[0] < 100);
+    check(name + " sky is daylight", !dark(sky.tl) && !dark(sky.tc) && !dark(sky.tr) && !dark(sky.mid), JSON.stringify(sky));
+  }
 }
 await fresh.setViewport({ width: 390, height: 844 });
 await fresh.evaluate(() => {
@@ -227,6 +276,19 @@ await fresh.evaluate(() => {
 });
 await new Promise((r) => setTimeout(r, 500));
 await fresh.screenshot({ path: path.join(shot, "v53-phone.png") });
+await fresh.setViewport({ width: 1024, height: 768 });
+const fps = await fresh.evaluate(() => new Promise((resolve) => {
+  let n = 0;
+  const t0 = performance.now();
+  function loop() {
+    n++;
+    if (performance.now() - t0 < 1000) requestAnimationFrame(loop);
+    else resolve(n);
+  }
+  requestAnimationFrame(loop);
+}));
+console.log("TABLET_FPS", fps);
+console.log("TABLET_FPS is the headless software renderer after the phone resize");
 await fresh.close();
 
 const save51 = {

@@ -2,7 +2,8 @@
 
 ## 5.3
 
-- The castle has a second floor. It costs 40 coins after exactly 3 reading questions. A miss opens the teach-it lesson and one practice question, and that practice does not change coins.
+- The upstairs costs 40 coins the first time she climbs, with a confirm and no questions. After that the stair is free, including after a reload.
+- The green book in the dining room asks 3 reading questions. Three right answers open the secret passage. A miss still opens the teach-it lesson and one practice question, and that practice does not change coins. The passage stays open.
 - The first floor is the entry hall off the drawbridge, the ballroom, and the dining room. Upstairs are the bedroom and wardrobe, the art studio, and a veranda that looks out over the kingdom.
 - The library is behind a swinging bookcase and a short tunnel. Books stay. Saves, prices, and purchases stay.
 

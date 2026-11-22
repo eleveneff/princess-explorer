@@ -9,6 +9,7 @@
   let built = false;
   let secret = false;
   let bookOpen = 0;
+  let stairAsk = false;
   let spark = null;
   let panorama = null;
   let root = null;
@@ -30,6 +31,13 @@
   let warmBg = null;
   let savedBg = undefined;
   let balconySky = false;
+  let gameSky = null;
+  let sparkHome = null;
+  let moteHome = null;
+  let clearHold = null;
+  let clearSaved = false;
+  let cloaked = [];
+  let panoAngle = -1;
 
   function pe() { return window.PrincessExplorer; }
   function three() { const PE = pe(); return PE && PE.gfx43 && PE.gfx43.THREE; }
@@ -48,6 +56,8 @@
     s.v53.plan = 1;
     s.v53.upper = owned() ? 1 : 0;
     if (s.v53.secret) secret = true;
+    if (s.v47 && s.v47.passed && s.v47.passed.passage) secret = true;
+    if (secret) s.v53.secret = 1;
     return s.v53;
   }
   function quiet() {
@@ -219,13 +229,13 @@
   function skyCanvas() {
     return paint(1024, 512, (g) => {
       const sky = g.createLinearGradient(0, 0, 0, 512);
-      sky.addColorStop(0, "#8eb6e6");
-      sky.addColorStop(0.45, "#f2c6d4");
-      sky.addColorStop(0.72, "#f6d7a8");
-      sky.addColorStop(1, "#f3e2c4");
+      sky.addColorStop(0, "#7eb6ea");
+      sky.addColorStop(0.42, "#c5dff6");
+      sky.addColorStop(0.72, "#f7e7d4");
+      sky.addColorStop(1, "#e8d2b0");
       g.fillStyle = sky;
       g.fillRect(0, 0, 1024, 512);
-      const sun = g.createRadialGradient(700, 360, 10, 700, 360, 180);
+      const sun = g.createRadialGradient(720, 390, 8, 720, 390, 90);
       sun.addColorStop(0, "rgba(255,244,210,0.95)");
       sun.addColorStop(1, "rgba(255,244,210,0)");
       g.fillStyle = sun;
@@ -330,6 +340,8 @@
       } else if (it.kind === "cyl") {
         g = new THREE.CylinderGeometry(it.rt, it.rb, it.h, it.seg || 8);
         if (it.rx) g.rotateX(it.rx);
+      } else if (it.kind === "sph") {
+        g = new THREE.SphereGeometry(it.r, it.seg || 8, 6);
       } else {
         g = new THREE.BoxGeometry(it.w, it.h, it.d);
       }
@@ -477,46 +489,27 @@
     [-1.7, 1.7].forEach((x) => box("stair", "gold", x, 2.3, 8.6, 0.08, 0.1, 4.6));
     box("stair", "woodDark", 0, 0.08, 11.35, 3.6, 0.12, 0.7);
 
-    function chandelier(parent, x, y, z) {
-      const g = new THREE.Group();
-      g.position.set(x, y, z);
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.045, 8, 18), gold);
-      ring.rotation.x = Math.PI / 2;
-      g.add(ring);
-      const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.8, 6), gold);
-      chain.position.y = 0.55;
-      g.add(chain);
+    function chandelier(which, x, y, z) {
+      cyl(which, "gold", x, y + 0.55, z, 0.025, 0.025, 0.85, 6);
+      cyl(which, "gold", x, y, z, 0.58, 0.58, 0.07, 14);
       for (let i = 0; i < 6; i++) {
         const a = i / 6 * Math.PI * 2;
-        const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.28, 6), cream);
-        candle.position.set(Math.cos(a) * 0.55, 0.12, Math.sin(a) * 0.55);
-        g.add(candle);
-        const flame = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), gold);
-        flame.position.set(Math.cos(a) * 0.55, 0.32, Math.sin(a) * 0.55);
-        g.add(flame);
+        const cx = x + Math.cos(a) * 0.48;
+        const cz = z + Math.sin(a) * 0.48;
+        cyl(which, "cream", cx, y + 0.16, cz, 0.045, 0.045, 0.28, 6);
+        add(which, "gold", { kind: "sph", x: cx, y: y + 0.34, z: cz, r: 0.055, seg: 6 });
       }
-      parent.add(g);
-      return g;
     }
-    chandelier(downG, 0, 4.15, 8.4);
-    chandelier(downG, -11, 4.05, 8);
-    if (has("stage")) chandelier(downG, -11, 4.15, 6.2);
-    chandelier(downG, 11, 4.05, 8);
+    chandelier("down", 0, 4.15, 8.4);
+    chandelier("down", -11, 4.05, 8);
+    if (has("stage")) chandelier("down", -11, 4.15, 6.2);
+    chandelier("down", 11, 4.05, 8);
 
-    const chair = new THREE.Group();
-    chair.position.set(0, 0, 0.2);
-    [[-0.28, 0.28, -0.22], [0.28, 0.28, -0.22], [-0.28, 0.28, 0.22], [0.28, 0.28, 0.22]].forEach((p) => {
-      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.5, 0.08), woodDark);
-      leg.position.set(p[0], p[1], p[2]);
-      chair.add(leg);
+    [[-0.28, 0.28, -0.02], [0.28, 0.28, -0.02], [-0.28, 0.28, 0.42], [0.28, 0.28, 0.42]].forEach((p) => {
+      box("down", "woodDark", p[0], p[1], p[2], 0.08, 0.5, 0.08);
     });
-    const seat = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.1, 0.58), pink);
-    seat.position.y = 0.56;
-    chair.add(seat);
-    const back = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.9, 0.08), gold);
-    back.position.set(0, 1.05, -0.24);
-    chair.add(back);
-    downG.add(chair);
+    box("down", "pink", 0, 0.56, 0.2, 0.7, 0.1, 0.58);
+    box("down", "gold", 0, 1.05, -0.04, 0.7, 0.9, 0.08);
 
     box("down", "wood", 11, 0.55, 8.2, 2.4, 0.12, 1.3);
     cyl("down", "woodDark", 9.9, 0.28, 7.6, 0.06, 0.08, 0.55, 6);
@@ -535,23 +528,34 @@
     const caseBack = new THREE.Mesh(new THREE.BoxGeometry(0.28, 2.8, 2.4), woodDark);
     caseBack.position.set(0, 1.5, 0);
     bookcase.add(caseBack);
+    const shelfMesh = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.06, 2.2), wood);
+    const shelves = new THREE.InstancedMesh(shelfMesh.geometry, wood, 4);
+    const bookMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.16, 0.48, 0.28), red, 24);
+    const dummy = new THREE.Object3D();
+    let bi = 0;
     for (let row = 0; row < 4; row++) {
-      const shelf = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.06, 2.2), wood);
-      shelf.position.set(-0.12, 0.45 + row * 0.62, 0);
-      bookcase.add(shelf);
+      dummy.position.set(-0.12, 0.45 + row * 0.62, 0);
+      dummy.rotation.set(0, 0, 0);
+      dummy.updateMatrix();
+      shelves.setMatrixAt(row, dummy.matrix);
       for (let col = 0; col < 6; col++) {
         if (row === 2 && col === 4) continue;
-        const color = (row + col) % 3 === 0 ? red : (row + col) % 3 === 1 ? green : woodDark;
-        const bk = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.48, 0.28), color);
-        bk.position.set(-0.22, 0.72 + row * 0.62, -0.9 + col * 0.34);
-        bookcase.add(bk);
+        dummy.position.set(-0.22, 0.72 + row * 0.62, -0.9 + col * 0.34);
+        dummy.updateMatrix();
+        bookMesh.setMatrixAt(bi, dummy.matrix);
+        bookMesh.setColorAt(bi, new THREE.Color((row + col) % 3 === 0 ? "#a33b4a" : (row + col) % 3 === 1 ? "#2f6b3a" : "#7a4b2c"));
+        bi++;
       }
     }
+    bookMesh.count = bi;
+    bookMesh.instanceColor.needsUpdate = true;
+    bookcase.add(shelves, bookMesh);
     const proud = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.5, 0.3), green);
     proud.name = "v53-green-book";
     proud.position.set(-0.42, 1.96, 0.46);
     bookcase.add(proud);
     downG.add(bookcase);
+    if (secret) swingCase(true);
     const plaque = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.38), new THREE.MeshLambertMaterial({ map: tex(THREE, signCanvas("Pull the cheerful book.")) }));
     plaque.position.set(15.2, 3.15, 6.7);
     plaque.rotation.y = -0.4;
@@ -611,20 +615,50 @@
     box("secret", "woodDark", 22.6, -0.4, 6.7, 11.2, 3.2, 0.18);
     box("secret", "woodDark", 22.6, -0.4, 9.5, 11.2, 3.2, 0.18);
     box("secret", "woodDark", 22.6, 1.15, 8.1, 11.2, 0.16, 2.8);
-    roomBox("secret", 28.5, 41.2, 2.4, 14.2, -2.2, 4.2);
-    box("secret", "woodDark", 35, -1.15, 5.1, 3.4, 2.2, 0.28);
-    for (let b = 0; b < 8; b++) box("secret", b % 2 ? "green" : "red", 33.6 + b * 0.38, -0.7, 5.28, 0.28, 0.7, 0.12);
-    for (let i = 0; i < 4; i++) {
-      box("secret", "woodDark", 31 + i * 2.2, -0.3, 3.2, 1.5, 2.6, 0.35);
-      box("secret", "woodDark", 31 + i * 2.2, -0.3, 13.2, 1.5, 2.6, 0.35);
-      for (let b = 0; b < 4; b++) box("secret", b % 2 ? "green" : "red", 30.5 + i * 2.2 + (b % 2) * 0.4, -0.4, 3.45, 0.3, 0.45, 0.16);
-    }
     for (let i = 0; i < 5; i++) {
       cyl("secret", "gold", 18.5 + i * 1.8, -1.1, 8.1, 0.05, 0.05, 0.7, 6);
-      const flame = new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), gold);
-      flame.position.set(18.5 + i * 1.8, -0.7, 8.1);
-      secretG.add(flame);
+      add("secret", "gold", { kind: "sph", x: 18.5 + i * 1.8, y: -0.7, z: 8.1, r: 0.06, seg: 6 });
     }
+    roomBox("secret", 28.5, 41.2, 2.4, 14.2, -2.2, 4.2, { west: [6.4, 9.8] });
+    box("secret", "rug", 35, -2.08, 8.2, 6.5, 0.04, 4.2);
+    box("secret", "wood", 36.5, -1.55, 8.6, 1.6, 0.08, 0.9);
+    cyl("secret", "woodDark", 35.9, -1.9, 8.2, 0.05, 0.06, 0.6, 6);
+    cyl("secret", "woodDark", 37.1, -1.9, 8.2, 0.05, 0.06, 0.6, 6);
+    cyl("secret", "woodDark", 35.9, -1.9, 9.0, 0.05, 0.06, 0.6, 6);
+    cyl("secret", "woodDark", 37.1, -1.9, 9.0, 0.05, 0.06, 0.6, 6);
+    box("secret", "pink", 36.5, -1.42, 9.15, 0.55, 0.45, 0.08);
+    box("secret", "cream", 36.5, -1.48, 8.6, 1.45, 0.06, 0.8);
+    for (let i = 0; i < 4; i++) {
+      cyl("secret", "gold", 31.2, -0.85, 4.4 + i * 2.2, 0.045, 0.045, 0.7, 6);
+      add("secret", "gold", { kind: "sph", x: 31.2, y: -0.42, z: 4.4 + i * 2.2, r: 0.07, seg: 6 });
+    }
+    const stacks = new THREE.InstancedMesh(new THREE.BoxGeometry(0.22, 0.42, 0.16), red, 160);
+    const stackN = new THREE.Object3D();
+    let si = 0;
+    function stackAt(x, y, z, yaw) {
+      if (si >= 160) return;
+      stackN.position.set(x, y, z);
+      stackN.rotation.set(0, yaw || 0, 0);
+      stackN.updateMatrix();
+      stacks.setMatrixAt(si, stackN.matrix);
+      stacks.setColorAt(si, new THREE.Color(si % 3 === 0 ? "#8d2f3c" : si % 3 === 1 ? "#2d6a3c" : "#6a4428"));
+      si++;
+    }
+    for (let col = 0; col < 12; col++) {
+      for (let row = 0; row < 4; row++) {
+        stackAt(30.4 + col * 0.72, -1.85 + row * 0.5, 3.15, 0);
+        stackAt(30.4 + col * 0.72, -1.85 + row * 0.5, 13.35, Math.PI);
+      }
+    }
+    for (let row = 0; row < 5; row++) {
+      for (let col = 0; col < 6; col++) stackAt(39.6, -1.7 + row * 0.48, 5.2 + col * 0.55, Math.PI / 2);
+    }
+    stacks.count = si;
+    if (stacks.instanceColor) stacks.instanceColor.needsUpdate = true;
+    secretG.add(stacks);
+    const libLight = new THREE.PointLight("#ffd0a4", 1.35, 18, 2);
+    libLight.position.set(35, -0.2, 8);
+    secretG.add(libLight);
     if (has("nook")) {
       box("secret", "rug", 19.2, -2.05, 8.1, 2.2, 0.04, 1.8);
       box("secret", "pink", 19.2, -1.7, 8.8, 0.7, 0.12, 0.5);
@@ -638,70 +672,74 @@
     backCase.add(backWood);
     secretG.add(backCase);
 
-    const hillTex = tex(THREE, hillCanvas());
     panorama = new THREE.Group();
     panorama.name = "v53-panorama";
     panorama.visible = false;
     root.add(panorama);
-    const skyMat = new THREE.MeshBasicMaterial({ map: tex(THREE, skyCanvas()), side: THREE.BackSide, fog: false });
-    const sky = new THREE.Mesh(new THREE.SphereGeometry(90, 28, 18), skyMat);
+    const skyMat = new THREE.MeshBasicMaterial({ map: tex(THREE, skyCanvas()), side: THREE.BackSide, fog: false, depthWrite: false });
+    const sky = new THREE.Mesh(new THREE.SphereGeometry(180, 24, 16), skyMat);
     sky.name = "v53-sky";
     sky.frustumCulled = false;
-    sky.position.set(0, 4, 40);
+    sky.renderOrder = -2;
     panorama.add(sky);
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(160, 90), new THREE.MeshLambertMaterial({ map: tex(THREE, paint(1024, 512, (g) => {
+      const grass = g.createLinearGradient(0, 0, 0, 512);
+      grass.addColorStop(0, "#6d8c55");
+      grass.addColorStop(0.45, "#8eaf70");
+      grass.addColorStop(1, "#c5d7b0");
+      g.fillStyle = grass;
+      g.fillRect(0, 0, 1024, 512);
+      g.fillStyle = "rgba(70, 90, 60, 0.28)";
+      g.beginPath(); g.ellipse(280, 360, 180, 40, 0, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.ellipse(760, 300, 200, 36, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#4f6b3e";
+      g.fillRect(80, 180, 360, 18);
+      g.fillRect(560, 210, 300, 16);
+      g.fillStyle = "#d9d3c4";
+      g.beginPath(); g.ellipse(620, 150, 90, 28, 0, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#7eb4d0";
+      g.fillRect(430, 40, 70, 430);
+      g.fillStyle = "rgba(255,255,255,0.75)";
+      for (let i = 0; i < 14; i++) {
+        g.beginPath();
+        g.ellipse(465, 40 + i * 30, 16, 4, -0.5, 0, Math.PI * 2);
+        g.fill();
+      }
+    })) }));
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.set(0, 0.02, 48);
+    panorama.add(ground);
     const bands = [
-      { name: "", color: "#6f8f58", x: 0, y: 1.6, z: 30, sx: 80, sy: 4.2, sz: 9 },
-      { name: "east-realm", color: "#7e92a4", x: 14, y: 2.6, z: 58, sx: 30, sy: 5.5, sz: 12 },
-      { name: "north-realm", color: "#9eb4c8", x: -8, y: 3.4, z: 82, sx: 46, sy: 6.5, sz: 14 },
-      { name: "west-realm", color: "#d3dee8", x: 4, y: 4.2, z: 112, sx: 60, sy: 7.5, sz: 16 }
+      { name: "", color: "#5c7a42", z: 24, h: 3.2, w: 42 },
+      { name: "east-realm", color: "#6d8870", z: 36, h: 5.4, w: 56 },
+      { name: "north-realm", color: "#7ea0b8", z: 50, h: 7.6, w: 70 },
+      { name: "west-realm", color: "#c5d5e6", z: 68, h: 9.2, w: 84 }
     ];
     bands.forEach((b) => {
-      const mat = new THREE.MeshLambertMaterial({ map: hillTex, color: b.color });
-      const hill = new THREE.Mesh(new THREE.SphereGeometry(1, 22, 14), mat);
-      hill.scale.set(b.sx, b.sy, b.sz);
-      hill.position.set(b.x, b.y - b.sy * 0.35, b.z);
+      const shape = new THREE.Shape();
+      shape.moveTo(-b.w, 0);
+      for (let i = 0; i <= 10; i++) {
+        const x = -b.w + (2 * b.w) * (i / 10);
+        const peak = b.h * (0.35 + 0.65 * Math.abs(Math.sin(i * 0.9 + b.z)));
+        shape.lineTo(x, peak);
+      }
+      shape.lineTo(b.w, 0);
+      const hill = new THREE.Mesh(new THREE.ShapeGeometry(shape), new THREE.MeshBasicMaterial({ color: b.color, fog: true, side: THREE.DoubleSide }));
+      hill.position.set(0, 0.3, b.z);
       if (b.name) {
         hill.userData.v53realm = b.name;
         const slot = new THREE.Group();
         slot.name = b.name;
         hill.add(slot);
       }
-      const shade = new THREE.Mesh(new THREE.CircleGeometry(b.sx * 0.7, 16), new THREE.MeshBasicMaterial({ color: "#6d6458", transparent: true, opacity: 0.18, depthWrite: false }));
-      shade.rotation.x = -Math.PI / 2;
-      shade.position.set(b.x, 0.05, b.z);
-      panorama.add(hill, shade);
+      panorama.add(hill);
     });
-    const lawn = new THREE.Mesh(new THREE.CircleGeometry(22, 24), new THREE.MeshLambertMaterial({ color: "#8faf72" }));
-    lawn.rotation.x = -Math.PI / 2;
-    lawn.position.set(0, 0.02, 30);
-    panorama.add(lawn);
-    const hedge = new THREE.Mesh(new THREE.BoxGeometry(12, 0.8, 0.6), new THREE.MeshLambertMaterial({ color: "#4f6a40" }));
-    hedge.position.set(-6, 0.45, 27);
-    const hedge2 = hedge.clone();
-    hedge2.position.set(7, 0.45, 29);
-    const hedge3 = hedge.clone();
-    hedge3.scale.set(0.5, 1, 1);
-    hedge3.position.set(1, 0.45, 33);
-    panorama.add(hedge, hedge2, hedge3);
-    const moat = new THREE.Mesh(new THREE.PlaneGeometry(26, 3.2), new THREE.MeshLambertMaterial({ color: "#7eb6d4" }));
-    moat.rotation.x = -Math.PI / 2;
-    moat.position.set(0, 0.06, 40);
-    panorama.add(moat);
-    const terrace = new THREE.Mesh(new THREE.CylinderGeometry(3.4, 3.6, 0.18, 18), stone);
-    terrace.position.set(3.5, 0.16, 26);
-    panorama.add(terrace);
     streamMat = new THREE.MeshBasicMaterial({ map: tex(THREE, streamCanvas()), transparent: true, depthWrite: false });
-    const stream = new THREE.Mesh(new THREE.PlaneGeometry(5.5, 18), streamMat);
+    const stream = new THREE.Mesh(new THREE.PlaneGeometry(8, 36), streamMat);
     stream.name = "v53-stream";
     stream.rotation.x = -Math.PI / 2;
-    stream.position.set(-3.2, 0.1, 31);
+    stream.position.set(-2.5, 0.12, 28);
     panorama.add(stream);
-    for (let i = 0; i < 5; i++) {
-      const glint = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 6), new THREE.MeshBasicMaterial({ color: "#ffffff" }));
-      glint.position.set(-3.2 + (i - 2) * 0.7, 0.2, 26 + i * 2.1);
-      glint.userData.glint = 1;
-      panorama.add(glint);
-    }
 
     const fill = new THREE.PointLight("#ffe2c4", 0.85, 32, 2);
     fill.name = "v53-fill";
@@ -789,6 +827,37 @@
     } catch (err) { /* no audio */ }
   }
 
+  function showNote(text) {
+    const note = document.getElementById("prompt-text");
+    const bar = document.getElementById("prompt");
+    if (!note || !bar) return;
+    note.textContent = text;
+    bar.classList.remove("hidden");
+  }
+  function hideNote() {
+    const bar = document.getElementById("prompt");
+    if (bar) bar.classList.add("hidden");
+  }
+  function swingCase(open) {
+    bookOpen = open ? 1 : 0;
+    if (bookcase) bookcase.rotation.y = open ? -1.15 : 0;
+    const book = bookcase && bookcase.getObjectByName("v53-green-book");
+    if (book) book.position.x = open ? -0.62 : -0.42;
+  }
+  function revealPassage() {
+    secret = true;
+    const saved = bag();
+    saved.secret = 1;
+    if (secretG) secretG.visible = true;
+    swingCase(true);
+    place(18.4, -2.2, 8.1);
+    burst();
+    if (pe().save) pe().save();
+  }
+  function atStair(loc) {
+    return Math.abs(loc.x) < 2.1 && loc.z > 10.15 && loc.z < 11.7 && loc.y < 1.5;
+  }
+
   function onKey(ev) {
     held[ev.code] = ev.type === "keydown";
     if (ev.type !== "keydown") return;
@@ -798,42 +867,45 @@
     const loc = localPos();
     if (window.PE_V53) window.PE_V53.lastKey = { x: +loc.x.toFixed(2), z: +loc.z.toFixed(2), y: +loc.y.toFixed(2), learnOn: learnOpen(), owned: owned() };
     if (learnOpen()) return;
-    if (!owned() && Math.abs(loc.x) < 2.1 && loc.z > 10.15 && loc.z < 11.7 && loc.y < 1.5) {
+    if (!owned() && atStair(loc)) {
       ev.preventDefault();
       ev.stopPropagation();
-      const res = pe().learn.openGate("upper");
-      if (res && res.reason === "short") {
-        const note = document.getElementById("prompt-text");
-        const bar = document.getElementById("prompt");
-        if (note && bar) {
-          note.innerHTML = "Upper floor is 40 coins. Earn a few more, then press E.";
-          bar.classList.remove("hidden");
-        }
+      const score = Math.max(0, Math.floor(+pe().state().score || 0));
+      if (score < PRICE) {
+        stairAsk = false;
+        showNote("The upstairs is 40 coins. Earn a few more, then press E.");
+        return;
       }
+      if (!stairAsk) {
+        stairAsk = true;
+        showNote("Spend 40 coins to open the upstairs? Press E.");
+        return;
+      }
+      stairAsk = false;
+      pe().care.commit("upper");
+      hideNote();
+      if (ribbon) ribbon.visible = false;
       return;
     }
+    stairAsk = false;
     const dining = Math.abs(loc.x - 15.2) < 1.7 && Math.abs(loc.z - 8.2) < 1.7 && loc.y < 1.6;
     const back = Math.abs(loc.x - 40.2) < 1.6 && Math.abs(loc.z - 8.2) < 1.6 && loc.y < -1;
-    if (dining || back) {
+    if (dining && !secret) {
       ev.preventDefault();
       ev.stopPropagation();
-      secret = true;
-      bag().secret = 1;
-      if (secretG) secretG.visible = true;
-      pe().save && pe().save();
-      bookOpen = bookOpen ? 0 : 1;
-      if (bookcase) bookcase.rotation.y = bookOpen ? -1.15 : 0;
-      const book = bookcase && bookcase.getObjectByName("v53-green-book");
-      if (book) book.position.x = bookOpen ? -0.62 : -0.42;
-      if (bookOpen && dining) {
+      pe().learn.openPassage();
+      return;
+    }
+    if ((dining || back) && secret) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const opening = !bookOpen;
+      swingCase(opening);
+      if (opening && dining) {
         place(18.4, -2.2, 8.1);
         burst();
-      } else if (!bookOpen) {
-        place(13.6, 0, 8.2);
       } else {
         place(13.6, 0, 8.2);
-        bookOpen = 0;
-        if (bookcase) bookcase.rotation.y = 0;
       }
     }
   }
@@ -874,7 +946,37 @@
     lastTread = tread;
   }
 
+  function keeps(node, obj) {
+    let p = obj;
+    while (p) {
+      if (p === node) return true;
+      p = p.parent;
+    }
+    return false;
+  }
+  function cloakWorld(on) {
+    const PE = pe();
+    if (!PE || !PE.scene) return;
+    if (!on) {
+      cloaked.forEach((o) => { o.visible = true; });
+      cloaked = [];
+      return;
+    }
+    const inside = PE.scene.getObjectByName("v53-inside");
+    const hide = (ch) => {
+      if (!ch || ch.isLight || cloaked.indexOf(ch) >= 0) return;
+      if (ch === PE.princess || keeps(ch, PE.princess)) return;
+      if (inside && (keeps(inside, ch) || keeps(ch, inside))) return;
+      if (!ch.visible) return;
+      ch.visible = false;
+      cloaked.push(ch);
+    };
+    PE.scene.children.forEach(hide);
+    const home = inside && inside.parent;
+    if (home) home.traverse((o) => { if (o.isMesh || o.isPoints || o.isSprite) hide(o); });
+  }
   function applyRoom(where) {
+    const PE = pe();
     if (downG) downG.visible = !where || where.y < 2.4 || (where.id === "stair" && where.y < 3.6);
     if (upG) upG.visible = !!owned() && !!where && (where.y > 1.6 || where.id === "balcony" || where.id === "landing");
     if (stairG) stairG.visible = true;
@@ -882,60 +984,48 @@
     if (ribbon) ribbon.visible = !owned();
     const onBalcony = !!(where && where.id === "balcony");
     if (panorama) panorama.visible = onBalcony;
-    if (PE && PE.scene && onBalcony !== balconySky) {
-      balconySky = onBalcony;
-      const THREE = three();
-      if (onBalcony && THREE) {
-        if (!warmBg) warmBg = new THREE.Color("#f4d2c0");
-        if (savedBg === undefined) savedBg = PE.scene.background || null;
-        PE.scene.background = warmBg;
-      } else if (savedBg !== undefined) {
-        PE.scene.background = savedBg;
-        savedBg = undefined;
-      }
+    if (PE && PE.scene && !gameSky) {
       PE.scene.traverse((o) => {
-        if (o.isPoints) {
-          if (onBalcony) {
-            if (o.userData.v53sky == null) o.userData.v53sky = o.visible;
-            o.visible = false;
-          } else if (o.userData.v53sky != null) {
-            o.visible = o.userData.v53sky;
-            delete o.userData.v53sky;
-          }
-          return;
-        }
-        if (!o.isMesh || o.name === "v53-stream") return;
-        let p = o;
-        while (p) {
-          if (p.name === "v53-panorama" || p.name === "v53-inside") return;
-          p = p.parent;
-        }
-        if (!o.geometry) return;
-        if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
-        const sphere = o.geometry.boundingSphere;
-        if (!sphere) return;
-        const THREE = three();
-        if (!scaleV && THREE) scaleV = new THREE.Vector3();
-        if (!scaleV) return;
-        o.getWorldScale(scaleV);
-        const rad = sphere.radius * Math.max(Math.abs(scaleV.x), Math.abs(scaleV.y), Math.abs(scaleV.z));
-        if (rad < 40) return;
-        if (onBalcony) {
-          if (o.userData.v53sky == null) o.userData.v53sky = o.visible;
-          o.visible = false;
-        } else if (o.userData.v53sky != null) {
-          o.visible = o.userData.v53sky;
-          delete o.userData.v53sky;
-        }
+        const m = o.material;
+        if (!gameSky && m && m.uniforms && m.uniforms.top && m.uniforms.mid && m.uniforms.bot) gameSky = o;
       });
+      sparkHome = PE.scene.getObjectByName("v36-sparks");
+      moteHome = PE.scene.getObjectByName("v42-motes");
     }
-    const PE = pe();
+    const inside = !!(castle() && castle().inCastle);
+    [sparkHome, moteHome].forEach((o) => {
+      if (!o) return;
+      if (o.userData.v53was == null) o.userData.v53was = o.visible;
+      o.visible = inside ? false : o.userData.v53was;
+    });
+    if (onBalcony !== balconySky) {
+      balconySky = onBalcony;
+      if (gameSky) gameSky.visible = !onBalcony;
+      const THREE = three();
+      if (PE && PE.renderer && THREE) {
+        if (!clearHold) clearHold = new THREE.Color();
+        if (onBalcony) {
+          if (!clearSaved) {
+            PE.renderer.getClearColor(clearHold);
+            clearSaved = true;
+          }
+          PE.renderer.setClearColor("#f6d7c2");
+          if (!warmBg) warmBg = new THREE.Color("#f6d7c2");
+          if (savedBg === undefined) savedBg = PE.scene.background || null;
+          PE.scene.background = warmBg;
+        } else if (clearSaved) {
+          PE.renderer.setClearColor(clearHold);
+          PE.scene.background = savedBg;
+          savedBg = undefined;
+        }
+      }
+    }
     if (PE && PE.scene) {
-      if (where && where.id === "balcony") {
+      if (onBalcony) {
         if (savedFog === undefined) savedFog = PE.scene.fog || null;
         if (!PE.scene.fog || PE.scene.fog.name !== "v53fog") {
           const THREE = three();
-          const fog = new THREE.FogExp2("#d7e3ef", 0.013);
+          const fog = new THREE.FogExp2("#d5e3f0", 0.011);
           fog.name = "v53fog";
           PE.scene.fog = fog;
         }
@@ -953,8 +1043,13 @@
     const phone = window.innerWidth < 820;
     const y = p.y;
     if (where.id === "balcony") {
-      const goal = new THREE.Vector3(ic.x + (phone ? 2.2 : 3.2), y + (phone ? 1.8 : 2.5), ic.z + 15.4);
-      const look = new THREE.Vector3(ic.x + 0.2, y - 0.8, ic.z + 42);
+      const angle = (window.PE_V53 && window.PE_V53.angle) || 0;
+      if (panoAngle !== angle) {
+        panoFrom = null;
+        panoAngle = angle;
+      }
+      const goal = new THREE.Vector3(ic.x + (angle ? 0.8 : -0.4), y + (phone ? 2.2 : 3.1), ic.z + 14.9);
+      const look = new THREE.Vector3(ic.x + (angle ? -10 : 6), y + 1.5, ic.z + 48);
       if (!panoFrom) {
         panoFrom = cam.position.clone();
         panoAt = performance.now();
@@ -980,7 +1075,7 @@
       biscuit: [-8.2, y + 2.4, 12.5, -11.4, y + 0.9, 10.2],
       trophy: [8.2, y + 2.4, 12.5, 10.6, y + 1.2, 10.2],
       tunnel: [lx - 3.2, y + 1.25, lz + 0.9, lx + 5.5, y + 0.55, lz - 0.15],
-      library: [34.2, y + 1.7, 9.8, 35.2, y + 0.15, 5.1],
+      library: [33.2, -0.35, 11.6, 34.2, -1.15, 3.2],
       bedroom: [-11.4, y + 2.15, 11.9, -14.8, y + 1.15, 8.2],
       studio: [14.2, y + 2.2, 10.4, 11.4, y + 1.25, 6.2],
       landing: [0.4, y + 2.7, 9.4, 0, y + 1.2, 5.4],
@@ -1012,11 +1107,19 @@
       if (Math.abs(p.x) < 3 && p.z > 11.55 && p.z < 13.2) c.enterCastle();
       anchor = null;
       if (panorama) panorama.visible = false;
+      if (cloaked.length) cloakWorld(false);
       return;
     }
-    if (!anchor) anchor = PE.princess.position.clone();
-    integrate(dt);
+    cloakWorld(true);
     const p = PE.princess.position;
+    const lock = window.PE_V53 && window.PE_V53.lock;
+    if (lock) {
+      p.set(lock.x, lock.y, lock.z);
+      if (anchor) anchor.set(lock.x, lock.y, lock.z);
+    }
+    if (!anchor) anchor = p.clone();
+    else if (Math.hypot(p.x - anchor.x, p.z - anchor.z) > 2.5) anchor.set(p.x, p.y, p.z);
+    integrate(dt);
     const loc = localPos();
     const where = cell(loc.x, loc.z, anchor ? anchor.y : loc.y);
     if (where && where.id === "hall" && loc.z > 13.45 && Math.abs(loc.x) < 1.8 && loc.y < 0.4) {
@@ -1176,6 +1279,8 @@
       secret: () => secret,
       price: PRICE,
       drawCalls: () => drawCalls,
+      angle: 0,
+      openPassage: revealPassage,
       realms: () => ["east-realm", "north-realm", "west-realm"],
       error: ""
     };
