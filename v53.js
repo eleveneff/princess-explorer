@@ -97,7 +97,7 @@
   }
 
   function cell(lx, lz, y) {
-    if (Math.abs(lx) < 1.9 && lz > 6.15 && lz < 11.2) {
+    if (Math.abs(lx) < 1.9 && lz > 6.7 && lz < 11.2) {
       const t = Math.max(0, Math.min(1, (11.15 - lz) / 5));
       if (!owned() && t > 0.18) return null;
       return { id: "stair", y: t * FLOOR, t: t };
@@ -315,10 +315,8 @@
       g.moveTo(448, 168);
       g.bezierCurveTo(530, 206, 410, 262, 572, 312);
       g.stroke();
-      g.fillStyle = "#3f8f4a";
-      g.fillRect(700, 150, 150, 210);
-      g.strokeStyle = "#f4f7f2";
-      g.lineWidth = 4;
+      g.strokeStyle = "rgba(244, 247, 242, 0.8)";
+      g.lineWidth = 3;
       g.strokeRect(712, 162, 126, 186);
       g.beginPath();
       g.moveTo(775, 162);
@@ -363,6 +361,26 @@
       g.beginPath();
       g.arc(128, 118, 10, 0, Math.PI * 2);
       g.fill();
+    });
+  }
+  function globeCanvas() {
+    return paint(256, 128, (g) => {
+      g.fillStyle = "#7eb6d8";
+      g.fillRect(0, 0, 256, 128);
+      g.fillStyle = "#6ea86a";
+      [[40, 48, 36, 22], [78, 36, 28, 18], [120, 58, 48, 24], [168, 40, 34, 20], [200, 70, 30, 16]].forEach((b) => {
+        g.beginPath();
+        g.ellipse(b[0], b[1], b[2], b[3], 0, 0, Math.PI * 2);
+        g.fill();
+      });
+      g.strokeStyle = "rgba(255,255,255,0.45)";
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(0, 64);
+      g.lineTo(256, 64);
+      g.moveTo(128, 0);
+      g.lineTo(128, 128);
+      g.stroke();
     });
   }
   function hillCanvas() {
@@ -503,7 +521,7 @@
     const woodDark = new THREE.MeshLambertMaterial({ color: "#7a4b2c" });
     const gold = new THREE.MeshLambertMaterial({ color: "#f0d78c", emissive: "#a87820", emissiveIntensity: 0.35 });
     const clothMat = new THREE.MeshLambertMaterial({ map: tex(THREE, clothCanvas()), side: THREE.DoubleSide });
-    const glass = new THREE.MeshLambertMaterial({ color: "#f7c1d4", emissive: "#e7a0b8", emissiveIntensity: 0.45, transparent: true, opacity: 0.92 });
+    const glass = new THREE.MeshLambertMaterial({ color: "#b7def3", emissive: "#8ec4e4", emissiveIntensity: 0.28, transparent: true, opacity: 0.72 });
     const green = new THREE.MeshLambertMaterial({ color: "#2f6b3a" });
     const red = new THREE.MeshLambertMaterial({ color: "#a33b4a" });
     const cream = new THREE.MeshLambertMaterial({ color: "#f7efe2" });
@@ -655,17 +673,41 @@
     plane("down", "glass", -10, 2.8, 12.35, 2.2, 1.6, Math.PI, 0, 1);
     plane("down", "glass", 10, 2.8, 12.35, 2.2, 1.6, Math.PI, 0, 1);
 
-    for (let i = 0; i < 10; i++) {
-      const z = 10.9 - i * 0.46;
-      const y = (i + 1) / 10 * FLOOR;
-      box("stair", "wood", 0, y - 0.2, z, 3.35, 0.46, 0.62);
-      box("stair", "rug", 0, y + 0.04, z, 1.45, 0.03, 0.46);
-      [-1.55, 1.55].forEach((x) => {
-        cyl("stair", "gold", x, y + 0.22, z, 0.04, 0.04, 0.42, 6);
+    const steps = 12;
+    const zBot = 11.15;
+    const zTop = 6.15;
+    const run = (zBot - zTop) / steps;
+    const rise = FLOOR / steps;
+    for (let i = 0; i < steps; i++) {
+      const top = (i + 1) * rise;
+      const zc = zBot - (i + 0.5) * run;
+      box("stair", "wood", 0, top * 0.5, zc, 3.2, top, run + 0.05);
+      box("stair", "rug", 0, top + 0.02, zc, 1.02, 0.04, Math.max(0.16, run * 0.55));
+    }
+    box("stair", "wood", 0, FLOOR - 0.14, 5.5, 3.5, 0.3, 1.45);
+    box("stair", "rug", 0, FLOOR + 0.03, 5.5, 1.15, 0.04, 1.05);
+    const railLen = Math.hypot(zBot - zTop, FLOOR) * 0.9;
+    const railA = Math.atan2(FLOOR, zBot - zTop);
+    const railY = FLOOR * 0.5 + 0.84;
+    const railZ = (zBot + zTop) * 0.5;
+    [-1.5, 1.5].forEach((x) => {
+      box("stair", "gold", x, railY, railZ, 0.05, 0.05, railLen, railA);
+      cyl("stair", "gold", x, 0.7, zBot + 0.08, 0.1, 0.12, 1.4, 8);
+      cyl("stair", "gold", x, FLOOR + 0.7, zTop + 0.02, 0.1, 0.12, 1.4, 8);
+    });
+    const balusters = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.032, 0.038, 0.74, 6), gold, steps * 2);
+    const balO = new THREE.Object3D();
+    for (let i = 0; i < steps; i++) {
+      const top = (i + 1) * rise;
+      const zc = zBot - (i + 0.5) * run;
+      [-1.5, 1.5].forEach((x, side) => {
+        balO.position.set(x, top + 0.4, zc);
+        balO.rotation.set(0, 0, 0);
+        balO.updateMatrix();
+        balusters.setMatrixAt(i * 2 + side, balO.matrix);
       });
     }
-    [-1.55, 1.55].forEach((x) => box("stair", "gold", x, 2.15, 8.85, 0.07, 0.08, 5.6, -0.74));
-    box("stair", "woodDark", 0, 0.08, 11.35, 3.6, 0.12, 0.7);
+    stairG.add(balusters);
 
     function chandelier(which, x, y, z) {
       cyl(which, "gold", x, y + 0.55, z, 0.025, 0.025, 0.85, 6);
@@ -690,25 +732,75 @@
     box("down", "gold", 0, 1.05, -0.04, 0.7, 0.9, 0.08);
 
     box("down", "wood", 10.4, 0.48, 6.3, 5.2, 0.1, 1.25);
-    const seat = new THREE.InstancedMesh(new THREE.BoxGeometry(0.42, 0.55, 0.42), woodDark, 8);
-    const seatD = new THREE.Object3D();
-    for (let i = 0; i < 8; i++) {
-      seatD.position.set(8.6 + (i % 4) * 1.2, 0.4, i < 4 ? 5.55 : 7.05);
-      seatD.rotation.set(0, 0, 0);
-      seatD.updateMatrix();
-      seat.setMatrixAt(i, seatD.matrix);
+    const chairBits = [];
+    function chairBox(w, h, d, x, y, z) {
+      const g = new THREE.BoxGeometry(w, h, d);
+      g.translate(x, y, z);
+      chairBits.push(g.toNonIndexed());
     }
-    downG.add(seat);
-    cyl("down", "gold", 9.2, 1.05, 6.3, 0.045, 0.07, 0.85, 6);
-    cyl("down", "gold", 11.6, 1.05, 6.3, 0.045, 0.07, 0.85, 6);
-    add("down", "gold", { kind: "sph", x: 9.2, y: 1.52, z: 6.3, r: 0.08, seg: 8 });
-    add("down", "gold", { kind: "sph", x: 11.6, y: 1.52, z: 6.3, r: 0.08, seg: 8 });
-    [[8.7, 5.7], [9.7, 5.7], [11.1, 5.7], [12.1, 5.7], [8.7, 6.9], [9.7, 6.9], [11.1, 6.9], [12.1, 6.9]].forEach((p) => {
-      cyl("down", "cream", p[0], 0.58, p[1], 0.11, 0.11, 0.03, 8);
+    chairBox(0.46, 0.07, 0.46, 0, 0.48, 0);
+    chairBox(0.46, 0.52, 0.06, 0, 0.78, -0.2);
+    [[-0.17, -0.16], [0.17, -0.16], [-0.17, 0.16], [0.17, 0.16]].forEach((p) => chairBox(0.05, 0.48, 0.05, p[0], 0.24, p[1]));
+    const chairGeo = new THREE.BufferGeometry();
+    const chairPos = [];
+    const chairNrm = [];
+    const chairUv = [];
+    chairBits.forEach((g) => {
+      chairPos.push(g.attributes.position.array);
+      chairNrm.push(g.attributes.normal.array);
+      chairUv.push(g.attributes.uv.array);
+      g.dispose();
     });
-    plane("down", "glass", 12.2, 2.45, 8.95, 2.3, 1.4, Math.PI, 0, 1);
-    plane("down", "cloth", 10.7, 2.4, 8.8, 0.32, 1.55, Math.PI, 0, 0.333);
-    plane("down", "cloth", 13.7, 2.4, 8.8, 0.32, 1.55, Math.PI, 0.333, 0.666);
+    function joinArrays(list) {
+      let n = 0;
+      list.forEach((a) => { n += a.length; });
+      const out = new Float32Array(n);
+      let o = 0;
+      list.forEach((a) => { out.set(a, o); o += a.length; });
+      return out;
+    }
+    chairGeo.setAttribute("position", new THREE.Float32BufferAttribute(joinArrays(chairPos), 3));
+    chairGeo.setAttribute("normal", new THREE.Float32BufferAttribute(joinArrays(chairNrm), 3));
+    chairGeo.setAttribute("uv", new THREE.Float32BufferAttribute(joinArrays(chairUv), 2));
+    const chairs = new THREE.InstancedMesh(chairGeo, woodDark, 8);
+    const chairD = new THREE.Object3D();
+    for (let i = 0; i < 8; i++) {
+      const north = i < 4;
+      chairD.position.set(8.5 + (i % 4) * 1.25, 0, north ? 5.45 : 7.15);
+      chairD.rotation.set(0, north ? 0 : Math.PI, 0);
+      chairD.updateMatrix();
+      chairs.setMatrixAt(i, chairD.matrix);
+    }
+    downG.add(chairs);
+    function candelabra(x, z) {
+      cyl("down", "gold", x, 0.95, z, 0.04, 0.06, 0.72, 6);
+      box("down", "gold", x, 1.32, z, 0.5, 0.04, 0.04);
+      [-0.22, 0, 0.22].forEach((dx) => {
+        cyl("down", "cream", x + dx, 1.46, z, 0.03, 0.035, 0.2, 6);
+        add("down", "gold", { kind: "sph", x: x + dx, y: 1.58, z: z, r: 0.045, seg: 8 });
+      });
+      const glow = new THREE.PointLight("#ffd2a2", 0.45, 3.2, 2);
+      glow.position.set(x, 1.5, z);
+      downG.add(glow);
+    }
+    candelabra(9.3, 6.3);
+    candelabra(11.5, 6.3);
+    [[8.6, 5.95], [9.9, 5.95], [11.0, 5.95], [12.3, 5.95], [8.6, 6.65], [9.9, 6.65], [11.0, 6.65], [12.3, 6.65]].forEach((p) => {
+      cyl("down", "cream", p[0], 0.56, p[1], 0.1, 0.1, 0.025, 8);
+    });
+    plane("down", "glass", 8.0, 2.35, 3.4, 1.45, 1.2, 0, 0, 1);
+    plane("down", "glass", 12.8, 2.35, 3.4, 1.45, 1.2, 0, 0, 1);
+    [8.0, 12.8].forEach((x) => {
+      box("down", "woodDark", x, 2.35, 3.5, 1.55, 0.05, 0.04);
+      box("down", "woodDark", x, 2.35, 3.5, 0.05, 1.28, 0.04);
+    });
+    plane("down", "cloth", 7.05, 2.3, 3.52, 0.26, 1.5, 0, 0, 0.333);
+    plane("down", "cloth", 8.95, 2.3, 3.52, 0.26, 1.5, 0, 0.333, 0.666);
+    plane("down", "cloth", 11.85, 2.3, 3.52, 0.26, 1.5, 0, 0, 0.333);
+    plane("down", "cloth", 13.75, 2.3, 3.52, 0.26, 1.5, 0, 0.333, 0.666);
+    const hearth = new THREE.PointLight("#ffb060", 0.7, 7, 2);
+    hearth.position.set(10.4, 1.15, 4.3);
+    downG.add(hearth);
     cyl("down", "gold", -12.4, 0.85, 5.4, 0.05, 0.08, 1.05, 6);
     cyl("down", "gold", -14.4, 0.85, 6.5, 0.05, 0.08, 1.05, 6);
     add("down", "gold", { kind: "sph", x: -12.4, y: 1.45, z: 5.4, r: 0.09, seg: 8 });
@@ -718,28 +810,28 @@
     plane("down", "glass", -16.2, 2.55, 5.5, 1.7, 1.35, Math.PI / 2, 0, 1);
     plane("down", "cloth", -16.05, 2.5, 4.35, 0.3, 1.6, Math.PI / 2, 0, 0.333);
     plane("down", "cloth", -16.05, 2.5, 6.65, 0.3, 1.6, Math.PI / 2, 0.333, 0.666);
-    box("down", "stone", 10.4, 1.3, 3.45, 2.2, 1.6, 0.35);
-    plane("down", "cloth", 6.2, 2.2, 7.2, 0.7, 1.8, Math.PI / 2, 0, 0.333);
-    plane("down", "cloth", 14.6, 2.2, 7.2, 0.7, 1.8, -Math.PI / 2, 0.333, 0.666);
+    box("down", "stone", 10.4, 1.15, 3.42, 2.3, 1.7, 0.28);
+    box("down", "woodDark", 10.4, 0.72, 3.58, 1.05, 0.7, 0.12);
+    box("down", "wood", 10.4, 1.95, 3.36, 2.5, 0.1, 0.36);
     cyl("down", "stone", -3.8, 2.3, 8.4, 0.32, 0.36, 4.4, 8);
     cyl("down", "stone", 3.8, 2.3, 8.4, 0.32, 0.36, 4.4, 8);
-    [[-4.72, 6.2, 1], [4.72, 6.2, -1], [-4.72, 9.5, 1], [4.72, 9.5, -1]].forEach((p) => {
+    [[-4.72, 5.4, 1], [4.72, 5.4, -1], [-4.72, 7.6, 1], [4.72, 7.6, -1]].forEach((p) => {
       plane("down", "gold", p[0], 2.45, p[1], 0.95, 1.25, p[2] * Math.PI / 2, 0, 1);
-      plane("down", "portrait", p[0] - p[2] * 0.06, 2.42, p[1], 0.68, 0.92, p[2] * Math.PI / 2, 0, 1);
+      plane("down", "portrait", p[0] + p[2] * 0.05, 2.42, p[1], 0.68, 0.92, p[2] * Math.PI / 2, 0, 1);
     });
     [[-4.85, 4.8], [4.85, 4.8], [-4.85, 8.8], [4.85, 8.8]].forEach((p) => {
       cyl("down", "gold", p[0], 2.55, p[1], 0.05, 0.08, 0.22, 6);
       add("down", "gold", { kind: "sph", x: p[0], y: 2.72, z: p[1], r: 0.07, seg: 6 });
     });
-    plane("down", "cloth", -4.9, 3.1, 9.4, 0.7, 1.6, Math.PI / 2, 0.666, 1);
-    plane("down", "cloth", 4.9, 3.1, 9.4, 0.7, 1.6, -Math.PI / 2, 0.666, 1);
-    box("down", "wood", 11, 0.55, 8.2, 2.4, 0.12, 1.3);
-    cyl("down", "woodDark", 9.9, 0.28, 7.6, 0.06, 0.08, 0.55, 6);
-    cyl("down", "woodDark", 12.1, 0.28, 7.6, 0.06, 0.08, 0.55, 6);
-    cyl("down", "woodDark", 9.9, 0.28, 8.8, 0.06, 0.08, 0.55, 6);
-    cyl("down", "woodDark", 12.1, 0.28, 8.8, 0.06, 0.08, 0.55, 6);
-    cyl("down", "cream", 10.4, 0.7, 8.2, 0.1, 0.08, 0.12, 8);
-    cyl("down", "cream", 11.6, 0.7, 8.2, 0.1, 0.08, 0.12, 8);
+    plane("down", "cloth", -4.95, 3.2, 5.6, 0.55, 1.5, Math.PI / 2, 0.666, 1);
+    plane("down", "cloth", 4.95, 3.2, 5.6, 0.55, 1.5, -Math.PI / 2, 0.666, 1);
+    box("down", "wood", 14.5, 0.55, 4.7, 1.3, 0.1, 0.7);
+    cyl("down", "woodDark", 14.05, 0.28, 4.45, 0.05, 0.06, 0.5, 6);
+    cyl("down", "woodDark", 14.95, 0.28, 4.45, 0.05, 0.06, 0.5, 6);
+    cyl("down", "woodDark", 14.05, 0.28, 4.95, 0.05, 0.06, 0.5, 6);
+    cyl("down", "woodDark", 14.95, 0.28, 4.95, 0.05, 0.06, 0.5, 6);
+    cyl("down", "cream", 14.3, 0.66, 4.7, 0.08, 0.08, 0.1, 8);
+    cyl("down", "cream", 14.7, 0.66, 4.7, 0.08, 0.08, 0.1, 8);
     box("down", "gold", 9.2, 1.3, 10.6, 1.6, 0.08, 0.45);
     cyl("down", "gold", 8.7, 1.55, 10.6, 0.16, 0.12, 0.28, 8);
     cyl("down", "gold", 9.7, 1.55, 10.6, 0.16, 0.12, 0.28, 8);
@@ -805,13 +897,18 @@
     box("up", "cream", -12, FLOOR + 0.55, 9.2, 2.05, 0.22, 1.15);
     box("up", "pink", -12.7, FLOOR + 0.72, 9.2, 0.55, 0.16, 0.4);
     box("up", "pink", -11.3, FLOOR + 0.72, 9.2, 0.55, 0.16, 0.4);
-    box("up", "gold", -12, FLOOR + 1.15, 8.5, 2.3, 1.3, 0.1);
+    box("up", "gold", -12, FLOOR + 0.82, 8.55, 2.15, 0.42, 0.08);
+    box("up", "woodDark", -12, FLOOR + 1.15, 9.88, 2.05, 0.85, 0.08);
     const mirror = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 1.5), new THREE.MeshLambertMaterial({ color: "#d5e7f6", emissive: "#9fc4de", emissiveIntensity: 0.25 }));
     mirror.name = "v53-mirror";
     mirror.position.set(-15.9, FLOOR + 1.7, 8);
     mirror.rotation.y = Math.PI / 2;
     upG.add(mirror);
-    box("up", "gold", -15.85, FLOOR + 1.7, 8, 0.08, 1.7, 0.86);
+    const my = FLOOR + 1.7;
+    box("up", "gold", -15.82, my + 0.8, 8, 0.06, 0.08, 0.9);
+    box("up", "gold", -15.82, my - 0.8, 8, 0.06, 0.08, 0.9);
+    box("up", "gold", -15.82, my, 7.58, 0.06, 1.52, 0.08);
+    box("up", "gold", -15.82, my, 8.42, 0.06, 1.52, 0.08);
     [-13.05, -10.95].forEach((x) => {
       cyl("up", "woodDark", x, FLOOR + 1.35, 8.55, 0.05, 0.05, 2.2, 6);
       cyl("up", "woodDark", x, FLOOR + 1.35, 9.85, 0.05, 0.05, 2.2, 6);
@@ -904,17 +1001,24 @@
     box("secret", "woodDark", 40.28, -1.65, 6.6, 0.22, 0.18, 0.7);
     add("secret", "gold", { kind: "sph", x: 40.05, y: -0.55, z: 6.2, r: 0.06, seg: 6 });
     add("secret", "gold", { kind: "sph", x: 40.05, y: -0.55, z: 7.0, r: 0.06, seg: 6 });
-    add("secret", "gold", { kind: "sph", x: 37.5, y: -0.72, z: 7.5, r: 0.32, seg: 12 });
-    cyl("secret", "woodDark", 37.5, -1.28, 7.5, 0.08, 0.14, 0.75, 8);
-    box("secret", "woodDark", 32.4, -1.55, 8.5, 0.72, 0.42, 0.72);
-    box("secret", "pink", 32.4, -1.28, 8.5, 0.64, 0.12, 0.64);
-    box("secret", "woodDark", 32.4, -1.02, 8.82, 0.64, 0.48, 0.08);
+    cyl("secret", "woodDark", 36.3, -1.5, 6.7, 0.08, 0.14, 0.75, 8);
+    const globe = new THREE.Mesh(new THREE.SphereGeometry(0.34, 18, 14), new THREE.MeshLambertMaterial({ map: tex(THREE, globeCanvas()) }));
+    globe.position.set(36.3, -0.95, 6.7);
+    globe.name = "v53-globe";
+    secretG.add(globe);
+    box("secret", "woodDark", 32.7, -1.55, 7.55, 0.72, 0.42, 0.72);
+    box("secret", "pink", 32.7, -1.28, 7.55, 0.64, 0.12, 0.64);
+    box("secret", "woodDark", 32.7, -1.02, 7.88, 0.64, 0.48, 0.08);
     plane("secret", "glass", 40.85, -0.35, 10.2, 1.5, 1.15, -Math.PI / 2, 0, 1);
     plane("secret", "cloth", 40.7, -0.35, 9.2, 0.28, 1.35, -Math.PI / 2, 0, 0.333);
     plane("secret", "cloth", 40.7, -0.35, 11.2, 0.28, 1.35, -Math.PI / 2, 0.333, 0.666);
-    const libLight = new THREE.PointLight("#ffd0a4", 1.35, 18, 2);
-    libLight.position.set(35, -0.2, 8);
+    const libLight = new THREE.PointLight("#ffc48a", 1.8, 16, 2);
+    libLight.position.set(34.6, -0.4, 7.2);
     secretG.add(libLight);
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(2.1, 24), new THREE.MeshBasicMaterial({ color: "#ffb56a", transparent: true, opacity: 0.5, depthWrite: false }));
+    pool.rotation.x = -Math.PI / 2;
+    pool.position.set(34.6, -2.02, 7.3);
+    secretG.add(pool);
     if (has("nook")) {
       box("secret", "rug", 19.2, -2.05, 8.1, 2.2, 0.04, 1.8);
       box("secret", "pink", 19.2, -1.7, 8.8, 0.7, 0.12, 0.5);
@@ -1005,15 +1109,9 @@
     westSlot.name = "west-realm";
     westSlot.position.set(-20, 7.5, 82);
     panorama.add(trees, houses, roofs, peaks, eastSlot, northSlot, westSlot);
-    streamMat = new THREE.MeshBasicMaterial({ map: tex(THREE, streamCanvas()), transparent: true, depthWrite: false });
-    const stream = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 36), streamMat);
-    stream.name = "v53-stream";
-    stream.rotation.x = -Math.PI / 2;
-    stream.position.set(1.5, 0.28, 46);
-    panorama.add(stream);
-    const glints = new THREE.InstancedMesh(new THREE.SphereGeometry(0.12, 6, 5), gold, 8);
+    const glints = new THREE.InstancedMesh(new THREE.SphereGeometry(0.08, 6, 5), gold, 8);
     for (let i = 0; i < 8; i++) {
-      td.position.set(-1.2 + (i % 3) * 1.4, 0.4, 32 + i * 3.2);
+      td.position.set(-1.2 + (i % 3) * 1.4, 0.28, 32 + i * 3.2);
       td.rotation.set(0, 0, 0);
       td.scale.set(1, 0.35, 1);
       td.updateMatrix();
@@ -1039,7 +1137,8 @@
 
     ribbon = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 0.46), new THREE.MeshLambertMaterial({ map: tex(THREE, signCanvas("Upper floor", "40 coins")) }));
     ribbon.name = "v53-ribbon";
-    ribbon.position.set(0, 1.7, 11.15);
+    ribbon.position.set(-3.35, 2.35, 12.2);
+    ribbon.rotation.y = Math.PI / 2;
     root.add(ribbon);
 
     Object.keys(bags).forEach((which) => {
@@ -1350,15 +1449,16 @@
         panoFrom = null;
         panoAngle = angle;
       }
-      const goal = new THREE.Vector3(ic.x + (angle ? 4.4 : 1.35), y + (phone ? 2.2 : 3.35), ic.z + (angle ? 16.4 : 14.9));
-      const look = new THREE.Vector3(ic.x + (angle ? -6 : 2.4), y + (angle ? 0.15 : -1.7), ic.z + (angle ? 34 : 46));
+      const goal = new THREE.Vector3(ic.x + (angle ? 4.2 : 1.05), y + (phone ? 2.35 : 4.05), ic.z + (angle ? 16.1 : 14.85));
+      const look = new THREE.Vector3(ic.x + (angle ? -6.5 : 1.2), y + (angle ? -0.35 : -1.85), ic.z + (angle ? 34 : 36));
       if (!panoFrom) {
         panoFrom = cam.position.clone();
         panoAt = performance.now();
       }
       const e = Math.min(1, (performance.now() - panoAt) / 1000);
       const s = e * e * (3 - 2 * e);
-      cam.position.lerpVectors(panoFrom, goal, Math.max(s, 0.15));
+      const locked = !!(window.PE_V53 && window.PE_V53.lock);
+      cam.position.lerpVectors(panoFrom, goal, locked ? 1 : Math.max(s, 0.15));
       cam.lookAt(look);
       const dome = panorama && panorama.getObjectByName("v53-sky");
       if (dome) {
@@ -1369,18 +1469,18 @@
     }
     panoFrom = null;
     const shots = {
-      hall: [3.5, y + 2.25, 12.15, -0.15, y + 1.65, 7.4],
-      stair: [3.2, y + 1.85, 11.7, -0.1, y + 1.9, 8.1],
+      hall: [3.2, y + 3.35, 12.95, 0, y + 1.9, 6.5],
+      stair: [3.4, y + 3.5, 13.02, -0.2, y + 2.35, 6.7],
       throne: [0.2, y + 2.4, 5.8, 0, y + 1.0, 0.2],
-      ballroom: [-11.2, y + 2.15, 6.9, -14.8, y + 1.25, 4.5],
-      kitchen: [12.6, y + 2.35, 8.55, 10.2, y + 0.95, 5.1],
+      ballroom: [-8.7, y + 2.5, 7.25, -14.4, y + 1.15, 4.7],
+      kitchen: [6.55, y + 2.7, 8.15, 13.2, y + 1.0, 5.0],
       biscuit: [-8.2, y + 2.4, 12.5, -11.4, y + 0.9, 10.2],
       trophy: [8.2, y + 2.4, 12.5, 10.6, y + 1.2, 10.2],
-      tunnel: [lx - 3.2, y + 1.25, lz + 0.9, lx + 5.5, y + 0.55, lz - 0.15],
-      library: [37.2, -1.15, 8.8, 33.4, -1.45, 5.2],
-      bedroom: [-9.6, y + 1.9, 6.2, -13.2, y + 1.15, 9.4],
-      studio: [8.8, y + 2.05, 9.6, 13.2, y + 1.2, 6.0],
-      landing: [0.4, y + 2.7, 9.4, 0, y + 1.2, 5.4],
+      tunnel: [lx - 2.8, y + 1.25, lz + 0.55, lx + 7, y + 0.35, lz],
+      library: [36.9, -0.25, 9.7, 33.6, -1.35, 6.85],
+      bedroom: [-9.4, y + 2.05, 6.4, -12.8, y + 1.15, 9.2],
+      studio: [8.4, y + 2.15, 9.8, 13.0, y + 1.15, 6.2],
+      landing: [3.2, y + 2.2, 7.25, -1.0, y + 0.9, 5.1],
       upperhall: [lx, y + 2.4, lz + 3.2, lx, y + 1.1, lz - 2]
     };
     const s = shots[where.id] || [lx, y + 2.6, lz + 3.4, lx, y + 1.1, lz - 1];
@@ -1391,6 +1491,73 @@
     }
     cam.position.set(ic.x + s[0], s[1], ic.z + s[2]);
     cam.lookAt(ic.x + s[3], s[4], ic.z + s[5]);
+  }
+
+  function viewClear() {
+    const PE = pe();
+    const c = castle();
+    if (!PE || !PE.camera || !c || !c.inCastle) return { ok: false, reason: "outside" };
+    const cam = PE.camera.position;
+    const lx = cam.x - c.IC.x;
+    const lz = cam.z - c.IC.z;
+    const ly = cam.y;
+    const p = PE.princess.position;
+    const dist = Math.hypot(cam.x - p.x, cam.y - (p.y + 0.95), cam.z - p.z);
+    const loc = cell(p.x - c.IC.x, p.z - c.IC.z, p.y);
+    const room = loc ? loc.id : "";
+    const at = { room: room, dist: +dist.toFixed(2), x: +lx.toFixed(2), y: +ly.toFixed(2), z: +lz.toFixed(2) };
+    if (dist < 1.75) return { ok: false, reason: "princess", ...at };
+    const shells = {
+      hall: [-4.7, 4.7, 0.6, 4.7, 4.2, 13.15],
+      stair: [-4.7, 4.7, 0.8, 4.7, 7.4, 13.15],
+      throne: [-4.2, 4.2, 0.6, 4.6, -0.6, 3.1],
+      ballroom: [-15.8, -6.0, 0.6, 4.4, 3.7, 7.7],
+      kitchen: [6.0, 15.6, 0.6, 4.4, 3.8, 8.6],
+      biscuit: [-12.8, -5.8, 0.5, 4.2, 9.0, 12.7],
+      trophy: [5.8, 12.8, 0.5, 4.2, 9.6, 12.7],
+      landing: [-4.2, 4.2, 4.8, 8.2, 5.0, 7.6],
+      bedroom: [-15.8, -6.0, 4.8, 8.2, 4.0, 12.2],
+      studio: [6.0, 15.8, 4.8, 8.2, 4.0, 12.2],
+      balcony: [-6.4, 6.4, 5.2, 9.4, 14.7, 20.6],
+      tunnel: [17.6, 27.6, -1.9, 1.4, 7.0, 9.2],
+      library: [29.2, 40.6, -1.9, 1.6, 3.0, 13.6]
+    };
+    const shell = shells[room];
+    if (shell && !(lx > shell[0] && lx < shell[1] && ly > shell[2] && ly < shell[3] && lz > shell[4] && lz < shell[5])) {
+      return { ok: false, reason: "shell", ...at };
+    }
+    const solids = [
+      [-1.65, 1.65, 0, 4.35, 6.05, 11.25],
+      [7.7, 13.1, 0.25, 0.75, 5.6, 7.0],
+      [15.25, 15.9, 0, 3.0, 6.9, 9.5],
+      [-13.2, -10.8, 4.2, 5.9, 8.45, 10.0]
+    ];
+    for (let i = 0; i < solids.length; i++) {
+      const b = solids[i];
+      if (lx > b[0] && lx < b[1] && ly > b[2] && ly < b[3] && lz > b[4] && lz < b[5]) return { ok: false, reason: "solid", ...at };
+    }
+    const THREE = three();
+    if (THREE && PE.scene) {
+      const dir = new THREE.Vector3();
+      PE.camera.getWorldDirection(dir);
+      const meshes = [];
+      PE.scene.traverse((o) => { if (o.isMesh && o.visible && o.matrixWorld) meshes.push(o); });
+      const ray = new THREE.Raycaster(cam, dir, 0.02, 0.45);
+      const hits = ray.intersectObjects(meshes, false);
+      for (let i = 0; i < hits.length; i++) {
+        const obj = hits[i].object;
+        if (!obj.visible) continue;
+        let node = obj;
+        let actor = false;
+        while (node) {
+          if (node === PE.princess) actor = true;
+          node = node.parent;
+        }
+        if (actor) continue;
+        return { ok: false, reason: "near", name: obj.name || obj.type, hit: +hits[i].distance.toFixed(2), ...at };
+      }
+    }
+    return { ok: true, ...at };
   }
 
   function tick(dt) {
@@ -1512,6 +1679,37 @@
     };
   }
 
+  function hookStay(c, PE) {
+    if (c.stepInterior) {
+      const prev = c.stepInterior.bind(c);
+      c.stepInterior = function (dt) {
+        const p = PE.princess.position;
+        const x = p.x;
+        const y = p.y;
+        const z = p.z;
+        const out = prev(dt);
+        const was = cell(x - c.IC.x, z - c.IC.z, y);
+        if (was && (Math.abs(p.x - x) > 0.02 || Math.abs(p.z - z) > 0.02)) {
+          p.x = x;
+          p.z = z;
+          p.y = was.y;
+        }
+        return out;
+      };
+    }
+    if (c.nearestInterior) {
+      const prevNear = c.nearestInterior.bind(c);
+      c.nearestInterior = function () {
+        const hit = prevNear();
+        if (hit !== "exit" || !PE.princess) return hit;
+        const p = PE.princess.position;
+        const loc = cell(p.x - c.IC.x, p.z - c.IC.z, anchor ? anchor.y : p.y);
+        if (loc && loc.y > 1.6) return null;
+        return hit;
+      };
+    }
+  }
+
   function hookEnter(c, PE) {
     const orig = c.enterCastle.bind(c);
     c.enterCastle = function () {
@@ -1544,6 +1742,7 @@
     build(PE, THREE, c.castleIn.group);
     hookCamera(PE, THREE, c);
     hookEnter(c, PE);
+    hookStay(c, PE);
     const ask = PE.care.ask.bind(PE.care);
     PE.care.ask = function (id) {
       if (id !== "upper") return ask(id);
@@ -1613,6 +1812,7 @@
       secret: () => secret,
       price: PRICE,
       drawCalls: () => drawCalls,
+      viewClear: viewClear,
       angle: 0,
       openPassage: revealPassage,
       realms: () => ["east-realm", "north-realm", "west-realm"],

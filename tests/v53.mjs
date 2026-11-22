@@ -258,6 +258,8 @@ for (const [name, x, y, z] of spots) {
   }, x, y, z, name);
   await new Promise((r) => setTimeout(r, name.indexOf("veranda") >= 0 ? 1300 : 450));
   await fresh.screenshot({ path: path.join(shot, name + ".png") });
+  const clear = await fresh.evaluate(() => window.PrincessExplorer.v53.viewClear());
+  check(name + " camera stays out of her and the walls", clear.ok, JSON.stringify(clear));
   if (name === "v53-veranda" || name === "v53-veranda-side") {
     const sky = JSON.parse(execFileSync("python3", ["-c", "import json\nfrom PIL import Image\nim=Image.open(r'''" + path.join(shot, name + ".png") + "''').convert('RGB')\nw,h=im.size\npts={'tl':(int(w*0.12),int(h*0.2)),'tc':(int(w*0.5),int(h*0.16)),'tr':(int(w*0.84),int(h*0.2)),'mid':(int(w*0.5),int(h*0.42))}\nprint(json.dumps({k:list(im.getpixel(v)) for k,v in pts.items()}))\n"], { encoding: "utf8" }));
     const dark = (rgb) => rgb[0] + rgb[1] + rgb[2] < 140 || (rgb[2] > rgb[0] + 20 && rgb[0] < 100);
@@ -270,6 +272,8 @@ await fresh.evaluate(() => {
   const intro = document.getElementById("intro");
   if (intro) intro.classList.add("hidden");
   const ic = PE.v3.castle.IC;
+  PE.v53.lock = null;
+  PE.v53.angle = 0;
   PE.princess.position.set(ic.x, 0, ic.z + 9.2);
   PE.snapCamera && PE.snapCamera();
   window.dispatchEvent(new Event("resize"));

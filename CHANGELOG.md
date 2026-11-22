@@ -7,6 +7,7 @@
 - The first floor is the entry hall off the drawbridge, the ballroom, and the dining room. Upstairs are the bedroom and wardrobe, the art studio, and a veranda that looks out over the kingdom.
 - The library is behind a swinging bookcase and a short tunnel. Books stay. Saves, prices, and purchases stay.
 - The veranda looks out in daylight over the grounds, the stream, the village, and hazy hills. The hall, dining room, ballroom, bedroom, studio, and library are furnished.
+- The grand stair is one solid flight with a carpet runner, sloped rails, and a landing. Dining chairs, windows, and the library globe stay in the room with her, and each room camera is tested so it does not sit inside her or the walls.
 
 ## 5.2.1
 
