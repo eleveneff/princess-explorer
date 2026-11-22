@@ -413,8 +413,8 @@
         const span = Math.max(size.x, size.y, size.z);
         const rail = Math.min(size.x, size.z) < 0.55 && size.y < 1.6;
         if (span >= 16 && !rail) return;
-        fade.set(h.object, 0.05);
-        remember(h.object, 0.05);
+        fade.set(h.object, 0);
+        remember(h.object, 0);
       });
     });
     for (let n = 0; n < 6; n++) {
@@ -430,8 +430,8 @@
       const { size } = meshBox(hits[0].object, THREE);
       const span = Math.max(size.x, size.y, size.z);
       if (span < 16) {
-        fade.set(hits[0].object, 0.05);
-        remember(hits[0].object, 0.05);
+        fade.set(hits[0].object, 0);
+        remember(hits[0].object, 0);
       }
       const step = Math.min(dist - 2.4, hits[0].distance + 0.35);
       if (step <= 0.05) break;
@@ -468,8 +468,8 @@
       const closest = cam.position.clone().addScaledVector(ab, t);
       const pad = box.clone().expandByScalar(0.42);
       if (!pad.containsPoint(closest)) return;
-      fade.set(mesh, 0.04);
-      remember(mesh, 0.04);
+      fade.set(mesh, 0);
+      remember(mesh, 0);
     });
   }
 
@@ -488,8 +488,8 @@
       if (box.isEmpty() || !box.intersectsBox(body)) return;
       box.getSize(size);
       if (size.y < 0.28 || Math.max(size.x, size.y, size.z) > 8) return;
-      fade.set(mesh, 0.04);
-      remember(mesh, 0.04);
+      fade.set(mesh, 0);
+      remember(mesh, 0);
     });
   }
   clearSight.sprites = new Set();

@@ -1032,6 +1032,10 @@
     return Math.sin((age / 240) * Math.PI) * 0.085;
   }
   function stairStep(PE) {
+    if (window.PE_V53) {
+      lastTread = -1;
+      return;
+    }
     const castle = PE.v3 && PE.v3.castle;
     if (!castle || !castle.inCastle || castle.sitting) {
       lastTread = -1;

@@ -7,7 +7,7 @@
   const BUILD_SKILL = {
     maze: "area", tea: "money", terrace: "measure", studio: "shapes", nook: "reading",
     observatory: "patterns", stable: "fractions", court: "skip", training: "time",
-    stage: "data", corgi: "word", swans: "measure"
+    stage: "data", corgi: "word", swans: "measure", upper: "reading"
   };
   const SKILL_NAME = {
     area: "Area and perimeter", money: "Money", measure: "Measurement", shapes: "Shapes",
@@ -481,7 +481,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
       const info = progress();
       const rows = info.rows.length ? info.rows.map((r) => `<div class="v-row"><b>${SKILL_NAME[r.skill] || r.skill}</b> — ${r.acc}% of ${r.n}</div>`).join("") : "<p>No answers yet.</p>";
       const weak = info.weak.length ? info.weak.map((r, i) => `<div>${i + 1}. ${SKILL_NAME[r.skill] || r.skill} (${r.acc}%)</div>`).join("") : "<p>No weak spots yet.</p>";
-      return `<header><h2><span class="learn-ico">★</span>Progress</h2><button class="ghost" id="learn-exit">Exit</button></header><p>Princess Explorer 5.2: Learn &amp; Build</p><p>Time played: ${Math.round(info.playMs / 60000)} min. Daily streak: ${info.streak}.</p><p><b>Weakest skills</b></p>${weak}<p><b>Accuracy</b></p>${rows}${pause}`;
+      return `<header><h2><span class="learn-ico">★</span>Progress</h2><button class="ghost" id="learn-exit">Exit</button></header><p>Princess Explorer 5.3: Learn &amp; Build</p><p>Time played: ${Math.round(info.playMs / 60000)} min. Daily streak: ${info.streak}.</p><p><b>Weakest skills</b></p>${weak}<p><b>Accuracy</b></p>${rows}${pause}`;
     }
     if (mode === "daily" && daily) {
       const q = daily.qs[daily.i];
@@ -497,7 +497,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     if (mode === "winter") return `<header><h2><span class="learn-ico">❄</span>Winter castle</h2><button class="ghost" id="learn-exit">Exit</button></header><p>${winterOn() ? "December 1 to January 6. Frost on the moat, lights on the lawn, snow on the ground." : "The winter castle waits from December 1 to January 6."}</p>${winterOn() ? `<button id="learn-wreath">Wreath challenge, 20 coins</button>` : ""}` + pause;
     if (mode === "gate" && gate) {
       const q = gate.qs[gate.i];
-      const title = (PE.care.DEFS.find((d) => d.id === gate.id) || {}).name || "Build";
+      const title = gate.id === "passage" ? "Secret passage" : ((PE.care.DEFS.find((d) => d.id === gate.id) || {}).name || "Build");
       return head(title, `Question ${Math.min(gate.i + 1, gate.qs.length)} of ${gate.qs.length}`) + (q ? bodyQ(q) : "<p>Building…</p>") + pause;
     }
     return "";
@@ -569,6 +569,21 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
   }
   function openMode(next) { mode = next; pausedFrom = null; show(); }
 
+  function passageQuestions() {
+    return [
+      item("reading", "confidence", "Lila opened a green book. The first page said, \"The castle keeps its stories upstairs.\" What is the main idea?", ["The book tells where the castle stories are.", "Lila lost her book.", "The castle has no books.", "The page was blank."], 0, "Read what the page says.", "The page says the castle keeps its stories upstairs.", "read", 0),
+      item("vocab", "level", "In the sentence \"She pulled the cheerful book,\" the word cheerful means ____.", ["happy", "heavy", "lost", "closed"], 0, "Cheerful is a feeling word.", "Cheerful means happy.", "read", 0),
+      item("reading", "stretch", "A sign read, \"Pull the cheerful book to find the quiet room.\" Why does she pull that book?", ["To open the way to the quiet room.", "To put the book away.", "To turn off the lights.", "To pay a coin."], 0, "The sign tells what the pull does.", "Pulling that book finds the quiet room.", "read", 0)
+    ];
+  }
+  function openPassage() {
+    const v = bag();
+    if (v.passed.passage) return { ok: true, ready: true, score: coins() };
+    gate = { id: "passage", qs: passageQuestions(), i: 0, misses: 0, price: 0 };
+    example = null;
+    openMode("gate");
+    return { ok: true, total: 3, skill: "reading", price: 0, score: coins() };
+  }
   function makeGate(id) {
     const skill = BUILD_SKILL[id];
     const used = new Set();
@@ -584,6 +599,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     return qs.slice(0, 5);
   }
   function openGate(id) {
+    if (id === "upper") return { ok: false, reason: "confirm", score: coins() };
     if (!BUILD_SKILL[id]) return { ok: false, reason: "missing", score: coins() };
     const v = bag();
     if (v.ready[id] || v.passed[id]) return { ok: false, reason: "ready", score: coins() };
@@ -650,6 +666,14 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     const id = gate.id;
     const misses = gate.misses;
     const v = bag();
+    if (id === "passage") {
+      v.passed.passage = 1;
+      persist();
+      closePlay();
+      gate = null;
+      if (window.PE_V53 && window.PE_V53.openPassage) window.PE_V53.openPassage();
+      return { ok: true, right: true, done: true, refund: 0, misses, score: coins(), price: 0 };
+    }
     if (id === "wreath") {
       v.passed.wreath = 1;
       const bought = buyWreath();
@@ -662,7 +686,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     let refund = 0;
     if (res.ok) {
       v.passed[id] = 1;
-      if (misses === 0 && !v.refunded[id]) {
+      if (id !== "upper" && misses === 0 && !v.refunded[id]) {
         PE.state().score = coins() + 1;
         v.refunded[id] = 1;
         refund = 1;
@@ -1771,6 +1795,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     SKILL_NAME,
     needsGate: (id) => !!(BUILD_SKILL[id] && !bag().ready[id] && !bag().passed[id]),
     openGate,
+    openPassage,
     startDaily,
     answer,
     hold,

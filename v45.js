@@ -141,6 +141,7 @@
   function roomHere(room) {
     const c = PE.v3 && PE.v3.castle;
     if (!c || !c.inCastle) return false;
+    if (window.PE_V53 && window.PE_V53.here) return window.PE_V53.here(room);
     const p = PE.princess.position;
     const x = p.x - c.IC.x, z = p.z - c.IC.z;
     if (room === "throne") return z < -17 && Math.abs(x) < 8;
