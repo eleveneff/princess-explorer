@@ -6,6 +6,7 @@
 - The green book in the dining room asks 3 reading questions. Three right answers open the secret passage. A miss still opens the teach-it lesson and one practice question, and that practice does not change coins. The passage stays open.
 - The first floor is the entry hall off the drawbridge, the ballroom, and the dining room. Upstairs are the bedroom and wardrobe, the art studio, and a veranda that looks out over the kingdom.
 - The library is behind a swinging bookcase and a short tunnel. Books stay. Saves, prices, and purchases stay.
+- The veranda looks out in daylight over the grounds, the stream, the village, and hazy hills. The hall, dining room, ballroom, bedroom, studio, and library are furnished.
 
 ## 5.2.1
 
