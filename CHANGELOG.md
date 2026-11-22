@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.2.1
+
+- Standing on the garden circle and pressing E, or tapping Play, starts the garden mini-game. Other circles still use E for their own action.
+
 ## 5.2
 
 - On foot the drawbridge stays down, in one fixed position. It does not rise when she walks up to it, crosses it, or wanders off. It rises and lowers only while she is in the swan boat, so the boat can pass, and then it stays down.
