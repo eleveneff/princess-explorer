@@ -130,7 +130,7 @@ async function pick(page, index) {
 await fresh.evaluate(() => {
   const PE = window.PrincessExplorer;
   const ic = PE.v3.castle.IC;
-  PE.princess.position.set(ic.x + 14.2, 0, ic.z + 8.2);
+  PE.princess.position.set(ic.x + 13.8, 0, ic.z + 8.3);
 });
 await new Promise((r) => setTimeout(r, 250));
 await fresh.keyboard.press("e");
@@ -216,7 +216,7 @@ await again.close();
 await fresh.evaluate(() => {
   const PE = window.PrincessExplorer;
   const ic = PE.v3.castle.IC;
-  PE.princess.position.set(ic.x + 13.2, 0, ic.z + 8.2);
+  PE.princess.position.set(ic.x + 13.8, 0, ic.z + 8.3);
   PE.snapCamera && PE.snapCamera();
 });
 await new Promise((r) => setTimeout(r, 400));
@@ -237,14 +237,14 @@ const spots = [
   ["v53-hall", 0, 0, 10.2],
   ["v53-stair", 0, 0.4, 10.5],
   ["v53-ballroom", -12, 0, 5.6],
-  ["v53-dining", 12, 0, 6.6],
+  ["v53-dining", 13.8, 0, 8.3],
   ["v53-tunnel", 22, -2.2, 8.1],
   ["v53-library", 34.5, -2.2, 7.4],
   ["v53-landing", 0, 4.2, 6.2],
-  ["v53-bedroom", -12, 4.2, 9],
+  ["v53-bedroom", -9.5, 4.2, 7.5],
   ["v53-studio", 12, 4.2, 8],
-  ["v53-veranda", 0, 4.2, 17.2],
-  ["v53-veranda-side", 1.2, 4.2, 18.4]
+  ["v53-veranda", 1.7, 4.2, 19.15],
+  ["v53-veranda-side", 2.4, 4.2, 18.9]
 ];
 for (const k of ["KeyW", "KeyA", "KeyS", "KeyZ", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]) await fresh.keyboard.up(k);
 for (const [name, x, y, z] of spots) {
@@ -258,8 +258,13 @@ for (const [name, x, y, z] of spots) {
   }, x, y, z, name);
   await new Promise((r) => setTimeout(r, name.indexOf("veranda") >= 0 ? 1300 : 450));
   await fresh.screenshot({ path: path.join(shot, name + ".png") });
-  const clear = await fresh.evaluate(() => window.PrincessExplorer.v53.viewClear());
-  check(name + " camera stays out of her and the walls", clear.ok, JSON.stringify(clear));
+  const clear = await fresh.evaluate((x, y, z) => {
+    const fit = window.PrincessExplorer.v53.clearOfFurniture(x, y, z);
+    const view = window.PrincessExplorer.v53.viewClear();
+    return { view: view, fit: fit };
+  }, x, y, z);
+  check(name + " camera stays out of her and the walls", clear.view.ok, JSON.stringify(clear.view));
+  check(name + " stands clear of the furniture", clear.fit.ok, JSON.stringify(clear.fit));
   if (name === "v53-veranda" || name === "v53-veranda-side") {
     const sky = JSON.parse(execFileSync("python3", ["-c", "import json\nfrom PIL import Image\nim=Image.open(r'''" + path.join(shot, name + ".png") + "''').convert('RGB')\nw,h=im.size\npts={'tl':(int(w*0.12),int(h*0.2)),'tc':(int(w*0.5),int(h*0.16)),'tr':(int(w*0.84),int(h*0.2)),'mid':(int(w*0.5),int(h*0.42))}\nprint(json.dumps({k:list(im.getpixel(v)) for k,v in pts.items()}))\n"], { encoding: "utf8" }));
     const dark = (rgb) => rgb[0] + rgb[1] + rgb[2] < 140 || (rgb[2] > rgb[0] + 20 && rgb[0] < 100);
