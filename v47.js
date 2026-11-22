@@ -1,4 +1,4 @@
-/* Princess Explorer 5.1: Learn & Build. File name stays v47.js. Save keys are unchanged.
+/* Princess Explorer 5.2: Learn & Build. File name stays v47.js. Save keys are unchanged.
    Questions sit in front of a build. Direct care.commit() is unchanged so older saves and tests keep their prices. */
 (function () {
   const PE = window.PrincessExplorer;
@@ -12,7 +12,8 @@
   const SKILL_NAME = {
     area: "Area and perimeter", money: "Money", measure: "Measurement", shapes: "Shapes",
     reading: "Reading", vocab: "Vocabulary", patterns: "Patterns and place value",
-    fractions: "Fractions", skip: "Skip counting", time: "Time", data: "Data and graphs", word: "Word problems"
+    fractions: "Fractions", skip: "Skip counting", time: "Time", data: "Data and graphs", word: "Word problems",
+    groups: "Equal groups"
   };
 
   function item(skill, level, prompt, choices, answer, hint, explain, visual, n) {
@@ -76,6 +77,9 @@
     item("fractions", "stretch", "A cake is cut into 4 equal slices. Amara eats 1. What fraction is left?", ["3/4", "1/4", "4/3", "1/2"], 0, "Subtract the eaten slice from the whole.", "4 minus 1 leaves 3 slices, so 3/4.", "bars", 3),
 
     item("skip", "confidence", "Count by 5s: 5, 10, 15, ___", ["20", "16", "25", "18"], 0, "Keep adding 5.", "15 plus 5 is 20.", "line", 20),
+    item("skip", "confidence", "Which number is even?", ["8", "7", "11", "3"], 0, "Even numbers are the ones you land on when you count by 2s.", "8 splits into pairs. 7 does not.", "line", 8),
+    item("groups", "confidence", "3 flower beds with 4 roses in each. How many roses?", ["12", "7", "34", "1"], 0, "Multiply the groups by how many are in each.", "3 times 4 is 12.", "grid", 12),
+    item("groups", "confidence", "2 pots with 5 seeds in each. How many seeds?", ["10", "7", "25", "3"], 0, "Two groups of 5.", "2 times 5 is 10.", "grid", 10),
     item("skip", "confidence", "Count by 10s: 10, 20, 30, ___", ["40", "31", "35", "50"], 0, "Keep adding 10.", "30 plus 10 is 40.", "line", 40),
     item("skip", "level", "Which number is greater?", ["24", "18", "They are equal", "9"], 0, "Compare the tens first.", "2 tens is more than 1 ten.", "line", 24),
     item("skip", "level", "Count by 2s: 8, 10, 12, ___", ["14", "13", "16", "11"], 0, "Add 2.", "12 plus 2 is 14.", "line", 14),
@@ -149,7 +153,16 @@
   };
   TEACH.area = TEACH.shapes;
   TEACH.measure = [{ say: "Find the start mark on the number line.", visual: "line", n: 8 }, { say: "Jump to the end mark.", visual: "line", n: 12 }, { say: "The difference is how much longer.", visual: "line", n: 4 }];
-  TEACH.skip = TEACH.measure;
+  TEACH.skip = [
+    { say: "Line the numbers up. Compare the hundreds, then the tens, then the ones.", visual: "blocks", n: 36 },
+    { say: "The greater number is the one that is further along.", visual: "line", n: 24 },
+    { say: "Even numbers are the ones you land on when you count by 2s.", visual: "line", n: 8 }
+  ];
+  TEACH.groups = [
+    { say: "Count how many are in one group.", visual: "grid", n: 4 },
+    { say: "Count the groups.", visual: "grid", n: 3 },
+    { say: "Groups times how many are in each group is the total.", visual: "grid", n: 12 }
+  ];
   TEACH.time = [{ say: "Start at the first time on the line.", visual: "line", n: 2 }, { say: "Each hop can be 5 or 10 minutes.", visual: "line", n: 6 }, { say: "Land on the end time.", visual: "line", n: 8 }];
   TEACH.data = TEACH.fractions;
   TEACH.vocab = [{ say: "Read the word in the sentence.", visual: "read" }, { say: "Swap in each choice and see which one fits.", visual: "read" }, { say: "The choice that keeps the meaning is the answer.", visual: "read" }];
@@ -229,6 +242,21 @@
     const acc = rows[0][1].c / rows[0][1].n;
     return acc < 0.8 ? rows[0][0] : null;
   }
+  function practiceLike(skill, used, info) {
+    const blob = (String(info && info.prompt || "") + " " + String(info && info.explain || "")).toLowerCase();
+    const tests = [
+      [/great|least/, /great|least/],
+      [/even|odd/, /even|odd/],
+      [/group|times|each/, /group|each|times/],
+      [/share/, /share|equal/]
+    ];
+    const pair = tests.find((t) => t[0].test(blob));
+    if (pair) {
+      const hit = BANK.find((q) => q.skill === skill && !used.has(q.prompt) && pair[1].test(q.prompt.toLowerCase()));
+      if (hit) { used.add(hit.prompt); return Object.assign({}, hit); }
+    }
+    return pick(skill, "confidence", used);
+  }
   function pick(skill, level, used) {
     const all = BANK.filter((q) => q.skill === skill && q.level === level);
     const fresh = all.filter((q) => !used.has(q.prompt));
@@ -249,7 +277,8 @@
     const s = document.createElement("style");
     s.id = "v47-style";
     s.textContent = `
-#learn-layer{position:fixed;inset:0;z-index:60;display:none;align-items:flex-end;justify-content:center;background:rgba(70,30,90,.18);padding:10px}
+#learn-layer{position:fixed;inset:0;z-index:70;display:none;align-items:flex-end;justify-content:center;background:rgba(70,30,90,.28);padding:10px}
+body.learn-on #a35-card{visibility:hidden}
 #learn-layer.show{display:flex}
 #learn-card{width:min(760px,100%);max-height:min(62vh,640px);overflow:auto;background:#fffaf2;border:7px solid #ff7ac8;border-radius:28px 28px 18px 18px;padding:12px 14px 16px;color:#4a2c6f;font-family:"Trebuchet MS",sans-serif;box-shadow:0 22px 40px rgba(70,24,60,.28),0 10px 0 rgba(0,0,0,.08)}
 #learn-card header{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -368,6 +397,9 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     if (/time|elapsed/.test(t)) return "time";
     if (/data|graph|tally/.test(t)) return "data";
     if (/meas|length|ruler/.test(t)) return "measure";
+    if (/odd|even/.test(t)) return "skip";
+    if (/group|times|multipl/.test(t)) return "groups";
+    if (/shar/.test(t)) return "fractions";
     if (/skip|compar/.test(t)) return "skip";
     if (BANK.some((q) => q.skill === t)) return t;
     return "word";
@@ -394,7 +426,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     const skill = mapSkill(info.skill);
     const steps = (TEACH[skill] || TEACH.word).slice(0, 4);
     const used = new Set(info.prompt ? [info.prompt] : []);
-    const practice = pick(skill, "confidence", used);
+    const practice = practiceLike(skill, used, info);
     tutor = { skill, steps, step: 0, phase: "teach", practice, info, hit: highlightSentence(info) };
     resumeMode = mode;
     mode = "tutor";
@@ -449,7 +481,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
       const info = progress();
       const rows = info.rows.length ? info.rows.map((r) => `<div class="v-row"><b>${SKILL_NAME[r.skill] || r.skill}</b> — ${r.acc}% of ${r.n}</div>`).join("") : "<p>No answers yet.</p>";
       const weak = info.weak.length ? info.weak.map((r, i) => `<div>${i + 1}. ${SKILL_NAME[r.skill] || r.skill} (${r.acc}%)</div>`).join("") : "<p>No weak spots yet.</p>";
-      return `<header><h2><span class="learn-ico">★</span>Progress</h2><button class="ghost" id="learn-exit">Exit</button></header><p>Princess Explorer 5.1: Learn &amp; Build</p><p>Time played: ${Math.round(info.playMs / 60000)} min. Daily streak: ${info.streak}.</p><p><b>Weakest skills</b></p>${weak}<p><b>Accuracy</b></p>${rows}${pause}`;
+      return `<header><h2><span class="learn-ico">★</span>Progress</h2><button class="ghost" id="learn-exit">Exit</button></header><p>Princess Explorer 5.2: Learn &amp; Build</p><p>Time played: ${Math.round(info.playMs / 60000)} min. Daily streak: ${info.streak}.</p><p><b>Weakest skills</b></p>${weak}<p><b>Accuracy</b></p>${rows}${pause}`;
     }
     if (mode === "daily" && daily) {
       const q = daily.qs[daily.i];

@@ -616,6 +616,10 @@
     cam.lookAt = function (x, y, z) {
       orig(x, y, z);
       if (cam.userData.v51hold) return;
+      if (cam.userData.v52own) {
+        if (store.size) applyFade(new Map(), store);
+        return;
+      }
       if (PE.v3 && PE.v3.castle && PE.v3.castle.inCastle) {
         if (store.size) applyFade(new Map(), store);
         return;
