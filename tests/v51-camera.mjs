@@ -117,19 +117,37 @@ const tall = await page.evaluate(() => {
   const pos = new THREE.Vector3();
   const scl = new THREE.Vector3();
   let hall = null;
+  let library = null;
+  let libraryLocal = null;
   PE.v3.castle.castleIn.group.traverse((o) => {
     if (!o.userData || !o.userData.castleCeil || !o.geometry || !o.geometry.parameters) return;
     const g = o.geometry.parameters;
     o.getWorldPosition(pos);
     o.getWorldScale(scl);
-    if (Math.abs(g.width) > 18 && Math.abs(pos.z - PE.v3.castle.IC.z) < 20) {
-      const under = pos.y - Math.abs(g.height * scl.y) / 2;
+    const under = pos.y - Math.abs(g.height * scl.y) / 2;
+    if (Math.abs(g.width) > 18 && Math.abs(pos.z - PE.v3.castle.IC.z) < 8) {
       hall = hall == null ? under : Math.max(hall, under);
     }
+    if (Math.abs(g.width) > 18 && pos.z > PE.v3.castle.IC.z + 6) {
+      library = under;
+      libraryLocal = o.position.y - g.height / 2;
+    }
   });
-  return { hall: hall == null ? null : +hall.toFixed(2), scale: PE.v3.castle.castleIn.group.scale.y };
+  const mid = 15.9;
+  const princess = PE.princess;
+  princess.position.set(PE.v3.castle.IC.x, 0, mid);
+  PE.snapCamera();
+  return {
+    hall: hall == null ? null : +hall.toFixed(2),
+    library: library == null ? null : +library.toFixed(2),
+    libraryLocal: libraryLocal == null ? null : +libraryLocal.toFixed(2),
+    scale: PE.v3.castle.castleIn.group.scale.y,
+    stairY: +princess.position.y.toFixed(2),
+  };
 });
 check("hall ceiling is about 1.9x the old 10 m lid", tall.scale === 1.9 && tall.hall > 16 && tall.hall < 22, JSON.stringify(tall));
+check("library ceiling is about 1.9x as well", tall.library > 16 && tall.library < 22 && tall.library / tall.libraryLocal > 1.75, JSON.stringify(tall));
+check("the library stair lifts her between floors", tall.stairY > 0.6 && tall.stairY < 1.5, JSON.stringify(tall));
 
 const rooms = ["throne", "trophy", "bedroom", "library", "kitchen", "ballroom", "biscuit", "balcony"];
 const seen = [];

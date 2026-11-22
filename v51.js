@@ -57,6 +57,10 @@
     if (castle.castleIn.seat) castle.castleIn.seat.y *= SCALE;
     if (castle.castleIn.petSeat) castle.castleIn.petSeat.y *= SCALE;
     easeStairs(THREE, group);
+    buildStair(THREE, group);
+    liftBalcony(THREE, group);
+    fixSigns(THREE, PE.scene, castle);
+    nudgeCarpetSign(THREE, group);
     const fill = new THREE.PointLight("#fff6ea", 0.55, 36);
     fill.position.set(0, 3.4, 1);
     fill.name = "v51-fill";
@@ -111,6 +115,131 @@
           used.add(steps.indexOf(st));
         });
       });
+    });
+  }
+
+  const STAIR = { z0: 14.45, z1: 17.35, rise: 1.7, half: 1.3 };
+
+  function floorLift(lx, lz) {
+    if (Math.abs(lx) > 3.8) return 0;
+    if (lz >= STAIR.z1 && lz < 22.4) return STAIR.rise;
+    if (lz > STAIR.z0 && lz < STAIR.z1 && Math.abs(lx) <= STAIR.half + 0.2) {
+      return ((lz - STAIR.z0) / (STAIR.z1 - STAIR.z0)) * STAIR.rise;
+    }
+    return 0;
+  }
+
+  function buildStair(THREE, group) {
+    if (group.getObjectByName("v51-stair")) return;
+    const root = new THREE.Group();
+    root.name = "v51-stair";
+    const wood = new THREE.MeshLambertMaterial({ color: "#c9844a" });
+    const edge = new THREE.MeshLambertMaterial({ color: "#8d5a32" });
+    const rail = new THREE.MeshLambertMaterial({ color: "#f3efe4" });
+    const steps = 9;
+    const run = STAIR.z1 - STAIR.z0;
+    const treadD = run / steps;
+    for (let i = 0; i < steps; i++) {
+      const top = ((i + 1) / steps) * STAIR.rise;
+      const z = STAIR.z0 + (i + 0.5) * treadD;
+      const tread = new THREE.Mesh(new THREE.BoxGeometry(STAIR.half * 2, 0.18, treadD + 0.04), i % 2 ? wood : edge);
+      tread.scale.y = 1 / SCALE;
+      tread.position.set(0, (top - 0.09) / SCALE, z);
+      tread.userData.v51stair = 1;
+      root.add(tread);
+    }
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.2, 5.4), wood);
+    slab.scale.y = 1 / SCALE;
+    slab.position.set(0, (STAIR.rise - 0.1) / SCALE, 19.4);
+    slab.userData.v51floor = 1;
+    root.add(slab);
+    [-STAIR.half - 0.08, STAIR.half + 0.08].forEach((x) => {
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.42, run), rail);
+      bar.scale.y = 1 / SCALE;
+      bar.position.set(x, (STAIR.rise * 0.42) / SCALE, (STAIR.z0 + STAIR.z1) / 2);
+      root.add(bar);
+    });
+    group.add(root);
+  }
+
+  function liftBalcony(THREE, group) {
+    const box = new THREE.Box3();
+    const size = new THREE.Vector3();
+    group.updateMatrixWorld(true);
+    const meshes = [];
+    group.traverse((o) => { if (o.isMesh && !o.userData.v51stair && !o.userData.castleCeil && !o.userData.v51floor) meshes.push(o); });
+    meshes.forEach((mesh) => {
+      box.setFromObject(mesh);
+      if (box.isEmpty()) return;
+      box.getSize(size);
+      const lz0 = box.min.z - group.position.z;
+      const lz1 = box.max.z - group.position.z;
+      const top = box.max.y;
+      if (lz0 > 16.7 && lz1 < 22.6 && top < 4.2 && size.x < 14 && size.y < 3.2) {
+        mesh.position.y += STAIR.rise / SCALE;
+        mesh.userData.v51lifted = 1;
+      }
+    });
+  }
+
+  function backMaterial(THREE, material) {
+    const mats = Array.isArray(material) ? material : [material];
+    const clones = mats.map((m) => {
+      if (!m) return m;
+      const c = m.clone();
+      c.side = THREE.FrontSide !== undefined ? THREE.FrontSide : 0;
+      return c;
+    });
+    return Array.isArray(material) ? clones : clones[0];
+  }
+
+  function fixSigns(THREE, scene, castle) {
+    const front = THREE.FrontSide !== undefined ? THREE.FrontSide : 0;
+    scene.traverse((o) => {
+      if (!o.isMesh || !o.geometry || o.geometry.type !== "PlaneGeometry" || o.userData.v51sign) return;
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      if (!mats.some((m) => m && m.map && (m.side === THREE.DoubleSide || m.side === 2))) return;
+      mats.forEach((m) => { if (m) m.side = front; });
+      const back = new THREE.Mesh(o.geometry, backMaterial(THREE, o.material));
+      back.rotation.y = Math.PI;
+      back.position.z = -0.02;
+      back.userData.v51back = 1;
+      o.add(back);
+      o.userData.v51sign = 1;
+    });
+    const signs = (castle.castleIn && castle.castleIn.signs) || [];
+    signs.forEach((sign) => {
+      sign.children.forEach((ch) => {
+        if (!ch.isMesh || ch.userData.v51fixed) return;
+        if (Math.abs(Math.abs(ch.rotation.y) - Math.PI) > 0.25) return;
+        ch.scale.x = 1;
+        ch.material = backMaterial(THREE, ch.material);
+        ch.userData.v51fixed = 1;
+      });
+    });
+  }
+
+  function nudgeCarpetSign(THREE, group) {
+    const box = new THREE.Box3();
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    group.updateMatrixWorld(true);
+    group.traverse((o) => {
+      if (!o.isMesh || !o.geometry || o.geometry.type !== "PlaneGeometry" || o.userData.v51moved) return;
+      const mat = Array.isArray(o.material) ? o.material[0] : o.material;
+      if (!mat || !mat.map) return;
+      box.setFromObject(o);
+      if (box.isEmpty()) return;
+      box.getCenter(center);
+      box.getSize(size);
+      const lx = center.x - group.position.x;
+      const lz = center.z - group.position.z;
+      if (Math.abs(lx) > 0.85 || lz < -16 || lz > -4 || center.y > 2.4 || size.y > 1.4) return;
+      const scl = new THREE.Vector3();
+      (o.parent || group).updateWorldMatrix(true, false);
+      (o.parent || group).getWorldScale(scl);
+      o.position.x += (2.35 - lx) / (Math.abs(scl.x) || 1);
+      o.userData.v51moved = 1;
     });
   }
 
@@ -269,8 +398,29 @@
       if (step <= 0.05) break;
       cam.position.addScaledVector(dir, Math.min(step, 1.4));
     }
+    fadeBody(THREE, actor, meshes, fade);
     applyFade(fade, store);
     if (clearSight.sprites) hideSprites(THREE, cam, head, root, clearSight.sprites);
+  }
+
+  function fadeBody(THREE, actor, meshes, fade) {
+    if (!actor) return;
+    const p = actor.position;
+    const body = new THREE.Box3(
+      new THREE.Vector3(p.x - 0.48, p.y + 0.2, p.z - 0.48),
+      new THREE.Vector3(p.x + 0.48, p.y + 1.7, p.z + 0.48)
+    );
+    const box = new THREE.Box3();
+    const size = new THREE.Vector3();
+    meshes.forEach((mesh) => {
+      if (!mesh.visible || mesh.userData.v51floor || mesh.userData.v51stair || isActor(mesh, actor)) return;
+      box.setFromObject(mesh);
+      if (box.isEmpty() || !box.intersectsBox(body)) return;
+      box.getSize(size);
+      if (size.y < 0.28 || Math.max(size.x, size.y, size.z) > 8) return;
+      fade.set(mesh, 0.04);
+      remember(mesh, 0.04);
+    });
   }
   clearSight.sprites = new Set();
 
@@ -284,6 +434,7 @@
     const box = new THREE.Box3();
     let armed = false;
     castle.placeInteriorCamera = function (cam, offset, info) {
+      if (cam.userData.v51hold) return;
       orig(cam, offset, info);
       if (!castle.inCastle) {
         applyFade(new Map(), store);
@@ -297,6 +448,11 @@
       }
       scenery(PE, true);
       const p = PE.princess.position;
+      if (!castle.sitting) {
+        const lx = p.x - castle.IC.x;
+        const lz = p.z - castle.IC.z;
+        p.y = floorLift(lx, lz);
+      }
       const group = castle.castleIn.group;
       head.set(p.x, p.y + 1.45, p.z);
       const dx = cam.position.x - p.x;
@@ -321,6 +477,14 @@
         cam.updateProjectionMatrix();
       }
       target.set(p.x + (dx / dist) * want, y, p.z + (dz / dist) * want);
+      const camLz = target.z - castle.IC.z;
+      const plyLz = p.z - castle.IC.z;
+      if (plyLz > 13.5 && camLz < 8.2 && Math.abs(plyLz - camLz) > 0.2) {
+        const t = (8.2 - plyLz) / (camLz - plyLz);
+        target.x = p.x + (target.x - p.x) * t;
+        target.z = castle.IC.z + 8.2;
+        target.y = p.y + (target.y - p.y) * t;
+      }
       const dt = (info && info.dt) || 0.016;
       if (!armed || smooth.distanceTo(target) > 3) {
         smooth.copy(target);
@@ -381,6 +545,7 @@
     const head = new THREE.Vector3();
     cam.lookAt = function (x, y, z) {
       orig(x, y, z);
+      if (cam.userData.v51hold) return;
       if (PE.v3 && PE.v3.castle && PE.v3.castle.inCastle) {
         if (store.size) applyFade(new Map(), store);
         return;
