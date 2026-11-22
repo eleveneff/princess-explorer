@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.3
+
+- The castle has a second floor. It costs 40 coins after exactly 3 reading questions. A miss opens the teach-it lesson and one practice question, and that practice does not change coins.
+- The first floor is the entry hall off the drawbridge, the ballroom, and the dining room. Upstairs are the bedroom and wardrobe, the art studio, and a veranda that looks out over the kingdom.
+- The library is behind a swinging bookcase and a short tunnel. Books stay. Saves, prices, and purchases stay.
+
 ## 5.2.1
 
 - Standing on the garden circle and pressing E, or tapping Play, starts the garden mini-game. Other circles still use E for their own action.

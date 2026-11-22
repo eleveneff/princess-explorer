@@ -7,7 +7,7 @@
   const BUILD_SKILL = {
     maze: "area", tea: "money", terrace: "measure", studio: "shapes", nook: "reading",
     observatory: "patterns", stable: "fractions", court: "skip", training: "time",
-    stage: "data", corgi: "word", swans: "measure"
+    stage: "data", corgi: "word", swans: "measure", upper: "reading"
   };
   const SKILL_NAME = {
     area: "Area and perimeter", money: "Money", measure: "Measurement", shapes: "Shapes",
@@ -481,7 +481,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
       const info = progress();
       const rows = info.rows.length ? info.rows.map((r) => `<div class="v-row"><b>${SKILL_NAME[r.skill] || r.skill}</b> — ${r.acc}% of ${r.n}</div>`).join("") : "<p>No answers yet.</p>";
       const weak = info.weak.length ? info.weak.map((r, i) => `<div>${i + 1}. ${SKILL_NAME[r.skill] || r.skill} (${r.acc}%)</div>`).join("") : "<p>No weak spots yet.</p>";
-      return `<header><h2><span class="learn-ico">★</span>Progress</h2><button class="ghost" id="learn-exit">Exit</button></header><p>Princess Explorer 5.2: Learn &amp; Build</p><p>Time played: ${Math.round(info.playMs / 60000)} min. Daily streak: ${info.streak}.</p><p><b>Weakest skills</b></p>${weak}<p><b>Accuracy</b></p>${rows}${pause}`;
+      return `<header><h2><span class="learn-ico">★</span>Progress</h2><button class="ghost" id="learn-exit">Exit</button></header><p>Princess Explorer 5.3: Learn &amp; Build</p><p>Time played: ${Math.round(info.playMs / 60000)} min. Daily streak: ${info.streak}.</p><p><b>Weakest skills</b></p>${weak}<p><b>Accuracy</b></p>${rows}${pause}`;
     }
     if (mode === "daily" && daily) {
       const q = daily.qs[daily.i];
@@ -570,6 +570,10 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
   function openMode(next) { mode = next; pausedFrom = null; show(); }
 
   function makeGate(id) {
+    if (id === "upper") {
+      const used = new Set();
+      return [pick("reading", "confidence", used), pick("reading", "level", used), pick("reading", "stretch", used)];
+    }
     const skill = BUILD_SKILL[id];
     const used = new Set();
     const qs = [];
@@ -662,7 +666,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     let refund = 0;
     if (res.ok) {
       v.passed[id] = 1;
-      if (misses === 0 && !v.refunded[id]) {
+      if (id !== "upper" && misses === 0 && !v.refunded[id]) {
         PE.state().score = coins() + 1;
         v.refunded[id] = 1;
         refund = 1;
