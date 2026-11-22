@@ -64,6 +64,7 @@ function rayScript() {
       if (mat && mat.opacity != null && mat.opacity < 0.2) return false;
       const type = h.object.geometry && h.object.geometry.type;
       if (type === "CircleGeometry" || type === "RingGeometry" || type === "PlaneGeometry") return false;
+      if (h.object.name === "v52-leaf" && h.point.y < p.y + 0.8) return false;
       return true;
     }).slice(0, 3).map((h) => ({
     d: +h.distance.toFixed(2),

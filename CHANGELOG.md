@@ -8,6 +8,7 @@
 - Along the stream, tree canopies and columns that graze the camera-to-feet ray fade out. Fence posts and rails are split out of the ground mesh, so one rail can fade without hiding the yard.
 - Nameplates and doorway signs turn to face the camera. The library balcony has its own tiled floor. Each stair tread gives a small bounce and a soft step, and the step stays silent when sound is off.
 - Saves, coins, stars, items, prices, and the 5.1 migration are unchanged.
+- The Royal Garden keeps its beds: a planted, growing, or blooming flower is still there after a reload, and a harvested bed stays empty. The Play and Back buttons stay on the card on a desktop window and on a phone. A missed gate question hides the gate while the lesson and its practice question are up, and that lesson matches the kind of question (comparing, even numbers, or equal groups).
 
 ## 5.1
 

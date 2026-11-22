@@ -60,11 +60,16 @@
     }
     PE.camera.userData.v52 = 1;
     alloc(THREE);
-    try { splitFences(PE, THREE); } catch (err) { PE.v52error = String(err && err.message || err); }
+    try {
+      splitFences(PE, THREE);
+      dressBridge(PE, THREE);
+      dressWater(PE, THREE);
+    } catch (err) { PE.v52error = String(err && err.message || err); }
     markBridge(PE);
     balconyFloor(PE, THREE);
     collectOccluders(PE, THREE);
     hookCamera(PE, THREE);
+    hookGarden(PE);
     window.__GAME_VERSION__ = "v5.2";
     try { PE.version = "v5.2"; } catch (e) { /* version may be a getter */ }
     PE.v52 = api(PE, THREE);
@@ -83,8 +88,22 @@
       holdBounce: (phase) => { bounceHold = phase; },
       clearBounce: () => { bounceHold = null; },
       shot: null,
-      error: ""
+      error: "",
+      gardenBeds: () => gardenBeds(PE)
     };
+  }
+
+  function gardenBeds(PE) {
+    const live = PE.v35 && PE.v35.g && PE.v35.g.plots;
+    if (live) {
+      return live.map((p) => ({
+        st: p.st === "grow" || p.st === "bloom" ? p.st : "empty",
+        grow: Math.round((+p.grow || 0) * 100) / 100,
+        water: Math.round((+p.water || 0) * 100) / 100
+      }));
+    }
+    const saved = PE.state() && PE.state().v52 && PE.state().v52.garden;
+    return Array.isArray(saved) ? saved : [];
   }
 
   function inCastle(PE) {
@@ -126,6 +145,7 @@
         else if (mode === "boat") frameBoat(PE, THREE, native);
         else if (mode === "bridge") frameBridge(PE, THREE, native);
         fadePass(PE, THREE, mode);
+        tickDress(PE, THREE);
         stairStep(PE);
         scanTick++;
         if (!scanned || scanTick % 40 === 0) scanSigns(PE, THREE);
@@ -172,22 +192,40 @@
     if (minus > plus) { tx = -tx; tz = -tz; }
     const w = window.innerWidth || 1280;
     const phone = w < 780;
-    const outward = 0.55;
-    const side = raised ? (phone ? 5.2 : 6.4) : (phone ? 4.4 : 5.6);
-    let cx = p.x + outX * outward + tx * side;
-    let cz = p.z + outZ * outward + tz * side;
+    let cx;
+    let cz;
+    if (raised) {
+      const cam = PE.camera;
+      cam.position.set(p.x + 4.4, 6.8, p.z + 9.2);
+      native.call(cam, p.x, 2.4, p.z - 0.6);
+      return;
+    }
+    const shift = 0.7;
+    const camAng = Math.atan2(radialZ, radialX) + (tx >= 0 ? shift : -shift);
+    cx = MOAT.x + Math.cos(camAng) * 9.94;
+    cz = MOAT.z + Math.sin(camAng) * 9.94;
     let vx = cx - MOAT.x;
     let vz = cz - MOAT.z;
     let r = Math.hypot(vx, vz) || 1;
-    const minR = MOAT.inner + 0.85;
-    const maxR = MOAT.outer - 0.45;
+    const minR = MOAT.inner + 1.15;
+    const maxR = raised ? MOAT.outer - 0.28 : MOAT.outer - 0.55;
     const clamped = Math.max(minR, Math.min(maxR, r));
     cx = MOAT.x + (vx / r) * clamped;
     cz = MOAT.z + (vz / r) * clamped;
     const cam = PE.camera;
-    const lift = raised ? 6.5 : (phone ? 4.7 : 5.7);
-    cam.position.set(cx, Math.max(p.y + lift, 4.8), cz);
-    native.call(cam, p.x - outX * 0.4, p.y + 0.85, p.z - outZ * 0.4);
+    const lift = phone ? 4.5 : 5.05;
+    cam.position.set(cx, lift, cz);
+    const aim = swanAim(PE, p);
+    if (raised) native.call(cam, p.x, 2.7, p.z - 1.8);
+    else native.call(cam, aim.x, aim.y, aim.z);
+  }
+
+  function swanAim(PE, p) {
+    const boat = PE.scene.getObjectByName("care-swan-boat");
+    if (!boat) return { x: p.x, y: p.y + 1.15, z: p.z };
+    boat.updateWorldMatrix(true, false);
+    const head = boat.localToWorld(new (three().Vector3)(0, 2.15, 0.85));
+    return { x: head.x * 0.65 + p.x * 0.35, y: Math.max(1.35, head.y * 0.72), z: head.z * 0.65 + p.z * 0.35 };
   }
 
   function buildingPoint(deg, rad) {
@@ -217,15 +255,10 @@
     const p = PE.princess.position;
     const feet = _a.set(p.x, p.y + 0.14, p.z);
     const waist = _b.set(p.x, p.y + 0.85, p.z);
-    if (mode === "bridge" || mode === "boat") {
-      const bridgePad = PE.gate && PE.gate.state && PE.gate.state.b < 0.7 ? 0.42 : 0.26;
+    if (mode === "bridge") {
       const bridgeMeshes = pieces.filter((m) => m.userData.v52bridge);
-      grazeList(PE, THREE, bridgeMeshes, cam, feet, bridgePad, next);
-      grazeList(PE, THREE, bridgeMeshes, cam, waist, bridgePad, next);
-    }
-    if (mode === "boat") {
-      grazeList(PE, THREE, buildings(PE), cam, feet, 0.35, next);
-      grazeList(PE, THREE, buildings(PE), cam, waist, 0.4, next);
+      grazeList(PE, THREE, bridgeMeshes, cam, feet, 0.26, next);
+      grazeList(PE, THREE, bridgeMeshes, cam, waist, 0.26, next);
     }
     const railsPosts = pieces.filter((m) => m.userData.v52kind);
     grazeList(PE, THREE, railsPosts, cam, feet, 0.26, next);
@@ -334,12 +367,310 @@
     next.forEach((opacity, mesh) => fadeStore.set(mesh, opacity));
   }
 
+  let fallMap = null;
+  let fallFoam = null;
+  let chainMesh = null;
+  let chainLeaf = null;
+
+  function dressBridge(PE, THREE) {
+    const bridge = PE.scene.getObjectByName("v34-drawbridge");
+    if (!bridge || bridge.getObjectByName("v52-leaf")) return;
+    bridge.traverse((o) => {
+      if (!o.isMesh || o.geometry && o.geometry.type === "TorusGeometry") return;
+      if (o.isMesh && o.geometry && (o.geometry.type === "BoxGeometry" || o.geometry.type === "SphereGeometry")) o.visible = false;
+    });
+    const c = document.createElement("canvas");
+    c.width = 256;
+    c.height = 128;
+    const g = c.getContext("2d");
+    g.fillStyle = "#c9844a";
+    g.fillRect(0, 0, 256, 128);
+    for (let i = 0; i < 8; i++) {
+      g.fillStyle = i % 2 ? "#b8733a" : "#d39252";
+      g.fillRect(8, 6 + i * 15, 240, 12);
+      g.fillStyle = "#8d5a32";
+      g.fillRect(8, 17 + i * 15, 240, 2);
+    }
+    g.strokeStyle = "#6b3e22";
+    g.lineWidth = 8;
+    g.strokeRect(4, 4, 248, 120);
+    const tex = new THREE.CanvasTexture(c);
+    if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+    const leaf = new THREE.Mesh(new THREE.BoxGeometry(2.32, 0.18, 6.5), new THREE.MeshLambertMaterial({ map: tex }));
+    leaf.name = "v52-leaf";
+    leaf.position.set(0, 0.04, 3.32);
+    leaf.userData.v52keep = 1;
+    bridge.add(leaf);
+    chainLeaf = leaf;
+    const links = 16;
+    chainMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.11, 6, 5), new THREE.MeshLambertMaterial({ color: "#3a342e" }), links);
+    chainMesh.name = "v52-chains";
+    chainMesh.userData.v52keep = 1;
+    chainMesh.frustumCulled = false;
+    PE.scene.add(chainMesh);
+  }
+
+  function updateChains(THREE) {
+    if (!chainMesh || !chainLeaf) return;
+    const anchors = [new THREE.Vector3(-1.2, 3.45, 5.7), new THREE.Vector3(1.2, 3.45, 5.7)];
+    const corners = [new THREE.Vector3(-1.05, 0.12, 6.4), new THREE.Vector3(1.05, 0.12, 6.4)];
+    const dummy = updateChains.dummy || (updateChains.dummy = new THREE.Object3D());
+    const from = new THREE.Vector3();
+    const to = new THREE.Vector3();
+    chainLeaf.updateWorldMatrix(true, false);
+    for (let side = 0; side < 2; side++) {
+      from.copy(corners[side]);
+      chainLeaf.localToWorld(from);
+      to.copy(anchors[side]);
+      for (let i = 0; i < 8; i++) {
+        const t = (i + 0.5) / 8;
+        dummy.position.lerpVectors(from, to, t);
+        dummy.position.y -= Math.sin(t * Math.PI) * 0.35;
+        dummy.scale.setScalar(1);
+        dummy.rotation.set(0, 0, 0);
+        dummy.updateMatrix();
+        chainMesh.setMatrixAt(side * 8 + i, dummy.matrix);
+      }
+    }
+    chainMesh.instanceMatrix.needsUpdate = true;
+  }
+
+  function fallTexture(THREE) {
+    const c = document.createElement("canvas");
+    c.width = 128;
+    c.height = 256;
+    const g = c.getContext("2d");
+    const grd = g.createLinearGradient(0, 0, 0, 256);
+    grd.addColorStop(0, "#d7f6ff");
+    grd.addColorStop(0.45, "#8fdfff");
+    grd.addColorStop(1, "#e9fbff");
+    g.fillStyle = grd;
+    g.fillRect(0, 0, 128, 256);
+    g.strokeStyle = "rgba(255,255,255,.85)";
+    g.lineWidth = 3;
+    for (let i = 0; i < 14; i++) {
+      g.beginPath();
+      g.moveTo(8 + (i * 9) % 112, 0);
+      g.bezierCurveTo(20 + i * 6, 80, 4 + (i % 5) * 10, 150, 12 + (i * 7) % 100, 256);
+      g.stroke();
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
+  function curvedSheet(THREE, width, height, bow) {
+    const sy = 12;
+    const sx = 5;
+    const pos = [];
+    const uv = [];
+    const idx = [];
+    for (let y = 0; y <= sy; y++) {
+      const t = y / sy;
+      const curl = Math.sin(t * Math.PI) * bow * 0.22 + Math.pow(t, 1.35) * bow;
+      const yv = (1 - t) * height;
+      const widen = 1 + t * 0.22;
+      for (let x = 0; x <= sx; x++) {
+        const u = x / sx;
+        pos.push((u - 0.5) * width * widen, yv, curl);
+        uv.push(u, t);
+      }
+    }
+    for (let y = 0; y < sy; y++) {
+      for (let x = 0; x < sx; x++) {
+        const a = y * (sx + 1) + x;
+        idx.push(a, a + sx + 1, a + 1, a + 1, a + sx + 1, a + sx + 2);
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  function irregularShape(THREE, radius, wobble, phase) {
+    const shape = new THREE.Shape();
+    const n = 20;
+    for (let i = 0; i <= n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      const r = radius * (1 + wobble * Math.sin(a * 3 + phase) + wobble * 0.55 * Math.sin(a * 5 + phase * 1.7));
+      const x = Math.cos(a) * r;
+      const y = Math.sin(a) * r;
+      if (i === 0) shape.moveTo(x, y);
+      else shape.lineTo(x, y);
+    }
+    return new THREE.ShapeGeometry(shape);
+  }
+
+  function addRock(pos, x, y, z, sx, sy, sz) {
+    const c = [
+      [-sx, 0, -sz], [sx * 0.85, 0.02, -sz * 0.65], [sx * 0.7, 0.04, sz * 0.8], [-sx * 0.75, 0.01, sz],
+      [-sx * 0.55, sy, -sz * 0.35], [sx * 0.5, sy * 0.82, -sz * 0.25], [sx * 0.35, sy * 0.7, sz * 0.4], [-sx * 0.4, sy * 0.9, sz * 0.28]
+    ];
+    const faces = [[0, 1, 2], [0, 2, 3], [4, 6, 5], [4, 7, 6], [0, 4, 5], [0, 5, 1], [1, 5, 6], [1, 6, 2], [2, 6, 7], [2, 7, 3], [3, 7, 4], [3, 4, 0]];
+    for (let f = 0; f < faces.length; f++) {
+      for (let k = 0; k < 3; k++) pos.push(x + c[faces[f][k]][0], y + c[faces[f][k]][1], z + c[faces[f][k]][2]);
+    }
+  }
+
+  function rockyRim(THREE, radius, mat, phase) {
+    const pos = [];
+    const n = 12;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + phase;
+      const rr = radius * (1.05 + 0.12 * Math.sin(i * 2.1 + phase));
+      const h = 0.7 + (i % 3) * 0.22;
+      const w = 0.62 + (i % 2) * 0.16;
+      addRock(pos, Math.cos(a) * rr, h * 0.25, Math.sin(a) * rr, w, h, w * 0.85);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    geo.computeVertexNormals();
+    return new THREE.Mesh(geo, mat);
+  }
+
+  function dressWater(PE, THREE) {
+    const root = PE.scene.getObjectByName("v46-stream");
+    if (!root || root.getObjectByName("v52-fall")) return;
+    const sheets = [];
+    const circles = [];
+    root.traverse((o) => {
+      if (!o.isMesh || !o.geometry) return;
+      if (o.name === "stream-fall") sheets.push(o);
+      if (o.geometry.type === "CircleGeometry" || o.geometry.type === "RingGeometry") {
+        const r = o.geometry.parameters.radius || o.geometry.parameters.outerRadius || 0;
+        if (r > 1.15) circles.push(o);
+      }
+    });
+    fallMap = fallTexture(THREE);
+    const mat = new THREE.MeshPhongMaterial({
+      map: fallMap,
+      color: "#e7f8ff",
+      emissive: "#7ed4f2",
+      emissiveIntensity: 0.35,
+      shininess: 70,
+      specular: "#ffffff",
+      side: THREE.DoubleSide,
+      transparent: false
+    });
+    let host = null;
+    let height = 3.2;
+    sheets.forEach((sheet) => {
+      if (!host) {
+        host = sheet;
+        const p = sheet.geometry.parameters;
+        if (p && p.height) height = p.height;
+      }
+      sheet.visible = false;
+    });
+    if (host && host.parent) {
+      const sheet = new THREE.Mesh(curvedSheet(THREE, 3.4, height, 3.6), mat);
+      sheet.name = "v52-fall";
+      sheet.position.copy(host.position);
+      sheet.rotation.copy(host.rotation);
+      sheet.position.y -= height * 0.5;
+      host.parent.add(sheet);
+      const foamPos = [];
+      for (let i = 0; i < 9; i++) {
+        const a = (i / 9) * Math.PI * 2;
+        addRock(foamPos, Math.cos(a) * (0.55 + (i % 3) * 0.18), 0.18, Math.sin(a) * (0.7 + (i % 2) * 0.2), 0.38, 0.32 + (i % 3) * 0.08, 0.3);
+      }
+      const foamGeo = new THREE.BufferGeometry();
+      foamGeo.setAttribute("position", new THREE.Float32BufferAttribute(foamPos, 3));
+      foamGeo.computeVertexNormals();
+      fallFoam = new THREE.Mesh(foamGeo, new THREE.MeshLambertMaterial({ color: "#f4fbff" }));
+      fallFoam.name = "v52-fall-foam";
+      const forward = new THREE.Vector3(0, 0, 1.15);
+      forward.applyQuaternion(host.quaternion);
+      fallFoam.position.copy(host.position);
+      fallFoam.position.y -= height * 0.5 - 0.12;
+      fallFoam.position.add(forward);
+      host.parent.add(fallFoam);
+    }
+    const rockMat = new THREE.MeshLambertMaterial({ color: "#cbbba6" });
+    const waterMat = new THREE.MeshLambertMaterial({ color: "#7ec8ea", side: THREE.DoubleSide });
+    const sandMat = new THREE.MeshLambertMaterial({ color: "#c4a574", side: THREE.DoubleSide });
+    const used = new Set();
+    circles.forEach((circle, idx) => {
+      if (used.has(circle)) return;
+      const cluster = [circle];
+      used.add(circle);
+      const cpos = new THREE.Vector3();
+      circle.getWorldPosition(cpos);
+      circles.forEach((other) => {
+        if (used.has(other)) return;
+        const opos = new THREE.Vector3();
+        other.getWorldPosition(opos);
+        if (cpos.distanceTo(opos) < 3.2) { cluster.push(other); used.add(other); }
+      });
+      cluster.forEach((o) => { o.visible = false; });
+      const parent = circle.parent;
+      const big = cluster.reduce((a, b) => {
+        const ra = a.geometry.parameters.radius || a.geometry.parameters.outerRadius || 0;
+        const rb = b.geometry.parameters.radius || b.geometry.parameters.outerRadius || 0;
+        return rb > ra ? b : a;
+      }, circle);
+      const radius = big.geometry.parameters.radius || big.geometry.parameters.outerRadius || 2;
+      const water = new THREE.Mesh(irregularShape(THREE, radius * 0.92, 0.16, idx), waterMat);
+      water.position.copy(circle.position);
+      water.rotation.x = -Math.PI / 2;
+      water.position.y += 0.03;
+      water.name = "v52-pool";
+      parent.add(water);
+      const rim = rockyRim(THREE, radius, rockMat, idx);
+      rim.position.set(circle.position.x, circle.position.y, circle.position.z);
+      rim.name = "v52-pool-rocks";
+      parent.add(rim);
+      const sand = new THREE.Mesh(irregularShape(THREE, radius * 1.18, 0.2, idx + 1), sandMat);
+      sand.position.copy(circle.position);
+      sand.rotation.x = -Math.PI / 2;
+      sand.position.y -= 0.02;
+      parent.add(sand);
+    });
+    const pools = [];
+    root.traverse((o) => { if (o.name === "v52-pool-rocks") pools.push(o); });
+    root.traverse((o) => {
+      if (!o.isMesh || !o.geometry || o.geometry.type !== "SphereGeometry" || !o.visible) return;
+      const wp = new THREE.Vector3();
+      o.getWorldPosition(wp);
+      const near = pools.some((rim) => {
+        const rp = new THREE.Vector3();
+        rim.getWorldPosition(rp);
+        return wp.distanceTo(rp) < 3.4;
+      });
+      if (near) o.visible = false;
+    });
+  }
+
+  function tickDress(PE, THREE) {
+    const now = performance.now();
+    const prev = tickDress.last || now;
+    tickDress.last = now;
+    const dt = Math.min(0.05, (now - prev) / 1000);
+    if (fallMap) fallMap.offset.y = (fallMap.offset.y - dt * 0.85) % 1;
+    if (fallFoam) {
+      const s = 1 + Math.sin(now / 260) * 0.05;
+      fallFoam.scale.set(s, s, 1);
+    }
+    updateChains(THREE);
+  }
+
   function markBridge(PE) {
     PE.scene.traverse((o) => {
       if (!o.isMesh) return;
       let p = o;
       while (p) {
-        if (p.name === "v34-drawbridge") { o.userData.v52bridge = 1; pieces.push(o); break; }
+        if (p.name === "v34-drawbridge") {
+          if (!o.userData.v52keep && o.name !== "v52-leaf" && o.name !== "v52-chains") {
+            o.userData.v52bridge = 1;
+            pieces.push(o);
+          }
+          break;
+        }
         p = p.parent;
       }
       const g = o.geometry;
@@ -809,6 +1140,133 @@
       if (delta < -maxTurn) delta = -maxTurn;
       mesh.rotation.y = rest.y + delta;
     }
+  }
+
+  function hookGarden(PE) {
+    const game = PE.v35 && PE.v35.defs && PE.v35.defs.garden;
+    if (!game || game.v52hook) return;
+    game.v52hook = true;
+    const origInit = game.init.bind(game);
+    const origAct = game.act.bind(game);
+    const origUpdate = game.update.bind(game);
+    const origCam = game.cam.bind(game);
+    let lastSig = "";
+    let sinceSave = 0;
+    function pack(n) {
+      if (!n || !n.plots) return null;
+      return n.plots.map((p) => ({
+        st: p.st === "grow" || p.st === "bloom" ? p.st : "empty",
+        grow: Math.round((+p.grow || 0) * 100) / 100,
+        water: Math.round((+p.water || 0) * 100) / 100
+      }));
+    }
+    function write(n) {
+      const list = pack(n);
+      if (!list) return;
+      const sig = JSON.stringify(list);
+      if (sig === lastSig) return;
+      lastSig = sig;
+      const s = PE.state();
+      if (!s.v52 || typeof s.v52 !== "object") s.v52 = {};
+      s.v52.garden = list;
+      if (PE.save) PE.save();
+    }
+    game.init = function (n, e) {
+      origInit(n, e);
+      const saved = (PE.state().v52 && PE.state().v52.garden) || [];
+      if (!Array.isArray(saved) || saved.length !== n.plots.length) {
+        lastSig = JSON.stringify(pack(n));
+        return;
+      }
+      saved.forEach((row, i) => {
+        const plot = n.plots[i];
+        if (!row || (row.st !== "grow" && row.st !== "bloom")) return;
+        plot.st = row.st;
+        plot.grow = Math.max(0, Math.min(1.2, +row.grow || 0));
+        plot.water = Math.max(0, Math.min(1, +row.water || 0));
+        plot.obj = game.plantObj(n, e, plot);
+        game.shape(plot);
+      });
+      lastSig = JSON.stringify(pack(n));
+    };
+    game.act = function (n, e, t) {
+      const out = origAct(n, e, t);
+      write(n);
+      return out;
+    };
+    game.update = function (n, dt, input, helper) {
+      const before = (n.plots || []).map((p) => p.st).join("");
+      origUpdate(n, dt, input, helper);
+      const after = (n.plots || []).map((p) => p.st).join("");
+      sinceSave += dt;
+      if (after !== before || sinceSave >= 0.75) { sinceSave = 0; write(n); }
+    };
+    game.cam = function (n, e) {
+      const c = origCam(n, e);
+      if (window.innerHeight < 520 && window.innerWidth > window.innerHeight) {
+        c[1] = 6.6;
+        c[2] = e.P.z * 0.35 + 7.4;
+        c[5] = e.P.z * 0.35 - 0.2;
+      }
+      return c;
+    };
+    if (PE.v35.close && !PE.v35.close.v52) {
+      const origClose = PE.v35.close.bind(PE.v35);
+      const wrapped = function () {
+        if (PE.v35.g) write(PE.v35.g);
+        return origClose();
+      };
+      wrapped.v52 = true;
+      PE.v35.close = wrapped;
+    }
+    pinMiniCard();
+  }
+
+  function pinMiniCard() {
+    if (document.getElementById("v52-garden-style")) return;
+    const style = document.createElement("style");
+    style.id = "v52-garden-style";
+    style.textContent = `
+#a35-card.v52-split{display:flex;flex-direction:column;overflow:hidden}
+#a35-card .v52-scroll{overflow:auto;flex:1 1 auto;min-height:0;-webkit-overflow-scrolling:touch}
+#a35-card .v52-pin{flex:0 0 auto;background:#fff;padding-top:8px;border-top:3px solid #ffe0f2}
+#a35-card .v52-pin .row{margin-top:6px}
+#a35-card .v52-pin .big{width:100%}
+`;
+    document.head.appendChild(style);
+    const card = document.getElementById("a35-card");
+    if (!card) return;
+    let gaveUp = null;
+    const pin = () => {
+      if (card.querySelector(":scope > .v52-pin")) return;
+      const anchor = card.querySelector("#a35-go, #a35-qnext");
+      if (!anchor || !anchor.parentElement || gaveUp === anchor) return;
+      const scroller = document.createElement("div");
+      scroller.className = "v52-scroll";
+      while (card.firstChild) scroller.appendChild(card.firstChild);
+      card.appendChild(scroller);
+      const bar = document.createElement("div");
+      bar.className = "v52-pin";
+      const take = (sel) => {
+        const el = scroller.querySelector(sel);
+        if (el && el.parentElement && el.parentElement.parentElement === scroller) bar.appendChild(el.parentElement);
+      };
+      take("#a35-go");
+      take("#a35-qnext");
+      take("#a35-back");
+      take("#a35-qback");
+      if (!bar.childElementCount) {
+        while (scroller.firstChild) card.appendChild(scroller.firstChild);
+        scroller.remove();
+        gaveUp = anchor;
+        return;
+      }
+      gaveUp = null;
+      card.appendChild(bar);
+      card.classList.add("v52-split");
+    };
+    new MutationObserver(() => pin()).observe(card, { childList: true });
+    pin();
   }
 
   boot();
