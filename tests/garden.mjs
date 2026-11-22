@@ -230,6 +230,21 @@ for (const key of ["KeyW", "KeyZ", "KeyS", "KeyA"]) {
 }
 check("walking and Action plant a seed", planted.plant >= 1, JSON.stringify(planted));
 
+const labels = await desk.evaluate(() => {
+  const PE = window.PrincessExplorer;
+  const before = PE.v35.pops.length;
+  PE.v35.K.pop("🌱 Planted! +1", 0.4, 2.3, 1.2, "#2f8a2f", 0.8);
+  PE.v35.K.pop("🌱 Planted! +1", 0.55, 2.3, 1.25, "#2f8a2f", 0.8);
+  const a = PE.v35.pops[before];
+  const b = PE.v35.pops[before + 1];
+  const dx = a.position.x - b.position.x;
+  const dy = a.position.y - b.position.y;
+  const dz = a.position.z - b.position.z;
+  return { life: +a.userData.life.toFixed(2), sep: +Math.hypot(dx, dy, dz).toFixed(2), same: a === b };
+});
+check("two planted labels stay apart and fade sooner", labels.life <= 0.75 && labels.life > 0 && labels.sep >= 0.6 && !labels.same, JSON.stringify(labels));
+await shot(desk, "garden-after-two-labels");
+
 const grown = await desk.evaluate(() => {
   const PE = window.PrincessExplorer;
   const game = PE.v35.defs.garden;
@@ -250,6 +265,11 @@ const grown = await desk.evaluate(() => {
   };
 });
 check("plants grow and one harvest leaves the other beds in the save", grown.stats.plant >= 1 && grown.stats.water >= 1 && grown.stats.harvest >= 1 && grown.walletSame && grown.beds.some((b) => b.st === "grow" || b.st === "bloom") && JSON.stringify(grown.saved) === JSON.stringify(grown.beds), JSON.stringify(grown.stats));
+await desk.evaluate(() => {
+  const PE = window.PrincessExplorer;
+  for (let i = 0; i < 8; i++) PE.v35.step(0.1);
+});
+await new Promise((r) => setTimeout(r, 1100));
 await shot(desk, "garden-after-desk-grown");
 
 const paid = await desk.evaluate(() => {

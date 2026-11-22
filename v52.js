@@ -96,11 +96,14 @@
   function gardenBeds(PE) {
     const live = PE.v35 && PE.v35.g && PE.v35.g.plots;
     if (live) {
-      return live.map((p) => ({
-        st: p.st === "grow" || p.st === "bloom" ? p.st : "empty",
-        grow: Math.round((+p.grow || 0) * 100) / 100,
-        water: Math.round((+p.water || 0) * 100) / 100
-      }));
+      return live.map((p) => {
+        const alive = p.st === "grow" || p.st === "bloom";
+        return {
+          st: alive ? p.st : "empty",
+          grow: alive ? Math.round((+p.grow || 0) * 100) / 100 : 0,
+          water: alive ? Math.round((+p.water || 0) * 100) / 100 : 0
+        };
+      });
     }
     const saved = PE.state() && PE.state().v52 && PE.state().v52.garden;
     return Array.isArray(saved) ? saved : [];
@@ -1154,11 +1157,14 @@
     let sinceSave = 0;
     function pack(n) {
       if (!n || !n.plots) return null;
-      return n.plots.map((p) => ({
-        st: p.st === "grow" || p.st === "bloom" ? p.st : "empty",
-        grow: Math.round((+p.grow || 0) * 100) / 100,
-        water: Math.round((+p.water || 0) * 100) / 100
-      }));
+      return n.plots.map((p) => {
+        const alive = p.st === "grow" || p.st === "bloom";
+        return {
+          st: alive ? p.st : "empty",
+          grow: alive ? Math.round((+p.grow || 0) * 100) / 100 : 0,
+          water: alive ? Math.round((+p.water || 0) * 100) / 100 : 0
+        };
+      });
     }
     function write(n) {
       const list = pack(n);
@@ -1220,6 +1226,53 @@
       PE.v35.close = wrapped;
     }
     pinMiniCard();
+    hookPops(PE, three());
+  }
+
+  function hookPops(PE, THREE) {
+    const K = PE.v35 && PE.v35.K;
+    if (!K || !K.pop || K.pop.v52) return;
+    const orig = K.pop.bind(K);
+    function crowded(x, y, z) {
+      const cam = PE.camera;
+      const pops = PE.v35.pops || [];
+      if (!cam || !_p || !_b) return false;
+      _p.set(PE.v35.AX + x, y, PE.v35.AZ + z);
+      _p.project(cam);
+      const sx = _p.x;
+      const sy = _p.y;
+      for (let i = 0; i < pops.length; i++) {
+        const p = pops[i];
+        if (!p || !p.position || (p.userData && p.userData.life <= 0)) continue;
+        _b.set(PE.v35.AX + p.position.x, p.position.y, PE.v35.AZ + p.position.z);
+        _b.project(cam);
+        if (Math.abs(_b.x - sx) < 0.18 && Math.abs(_b.y - sy) < 0.1) return true;
+      }
+      return false;
+    }
+    const wrapped = function (text, x, y, z, color, size) {
+      let ox = 0;
+      let oy = 0;
+      const baseY = y == null ? 2.2 : y;
+      for (let n = 0; n < 8 && crowded(x + ox, baseY + oy, z); n++) {
+        oy += 0.62;
+        ox = n % 2 === 0 ? 0.75 : -0.75;
+      }
+      orig(text, x + ox, baseY + oy, z, color, size);
+      const pops = PE.v35.pops || [];
+      const sprite = pops[pops.length - 1];
+      if (!sprite || !sprite.userData) return;
+      sprite.userData.life = 0.7;
+      const map = sprite.material && sprite.material.map;
+      if (map && THREE) {
+        map.generateMipmaps = false;
+        map.minFilter = THREE.LinearFilter;
+        map.magFilter = THREE.LinearFilter;
+        map.needsUpdate = true;
+      }
+    };
+    wrapped.v52 = true;
+    K.pop = wrapped;
   }
 
   function pinMiniCard() {
