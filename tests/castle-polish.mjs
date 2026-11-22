@@ -138,7 +138,8 @@ const rooms = await page.evaluate(() => {
       if (!o.userData || !o.userData.castleCeil || !o.geometry || !o.geometry.parameters) return;
       const p = o.geometry.parameters;
       if (Math.abs(lx - o.position.x) < p.width / 2 && Math.abs(lz - o.position.z) < p.depth / 2) {
-        const g = o.position.y - p.height / 2 - cam.y;
+        const sy = castle.castleIn.group.scale.y || 1;
+        const g = (o.position.y - p.height / 2) * sy - cam.y;
         gap = gap == null ? g : Math.min(gap, g);
       }
     });
@@ -167,7 +168,7 @@ const rooms = await page.evaluate(() => {
     outsideX: +PE.princess.position.x.toFixed(2),
   };
 });
-check("entry camera is higher and pulled back in the tall hall", rooms.entryCam.x === 400 && rooms.entryCam.y > 4.6 && rooms.entryCam.y < 7.2 && rooms.entryCam.z > 9.2, JSON.stringify(rooms.entryCam));
+check("entry camera is higher and pulled back in the tall hall", rooms.entryCam.x === 400 && rooms.entryCam.y > 6 && rooms.entryCam.y < 9 && rooms.entryCam.z > 10, JSON.stringify(rooms.entryCam));
 check("every room camera stays on walkable floor", rooms.out.every((r) => r.inside && r.onFloor && r.strict), JSON.stringify(rooms.out));
 check("ceiling stays at least 1.1 m above the camera and the head is below the lens", rooms.out.every((r) => r.gap > 1.1 && r.headBelowCam && r.finish), JSON.stringify(rooms.out));
 check("Exit to Fountain returns outside the castle shell", rooms.left === true && Math.abs(rooms.outsideX) < 80, JSON.stringify(rooms));

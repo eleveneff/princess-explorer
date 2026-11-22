@@ -4,6 +4,15 @@
   const SCALE = 1.9;
   const EMPTY = function () {};
 
+  const SCENERY = ["v46-skirt", "v46-stream", "v34-moat", "v45-lawn"];
+
+  function scenery(PE, hide) {
+    SCENERY.forEach((name) => {
+      const obj = PE.scene.getObjectByName(name);
+      if (obj) obj.visible = !hide;
+    });
+  }
+
   function boot() {
     const PE = window.PrincessExplorer;
     const THREE = PE && PE.gfx43 && PE.gfx43.THREE;
@@ -42,6 +51,9 @@
     });
     const pet = castle.castleIn.pet;
     if (pet) pet.scale.y /= SCALE;
+    group.traverse((o) => {
+      if (o.isSprite) o.scale.y /= SCALE;
+    });
     if (castle.castleIn.seat) castle.castleIn.seat.y *= SCALE;
     if (castle.castleIn.petSeat) castle.castleIn.petSeat.y *= SCALE;
     easeStairs(THREE, group);
@@ -165,39 +177,102 @@
     return false;
   }
 
+  function meshBox(mesh, THREE) {
+    const box = new THREE.Box3().setFromObject(mesh);
+    const size = new THREE.Vector3();
+    if (!box.isEmpty()) box.getSize(size);
+    return { box, size };
+  }
+
   function skipMesh(mesh, THREE, actor) {
     if (!mesh.isMesh || isActor(mesh, actor) || mesh.userData.v51floor) return true;
-    const box = new THREE.Box3().setFromObject(mesh);
+    const { box, size } = meshBox(mesh, THREE);
     if (box.isEmpty()) return true;
-    const size = new THREE.Vector3();
-    box.getSize(size);
-    if (size.x > 40 || size.y > 40 || size.z > 40) return true;
+    if (size.x > 80 || size.y > 80 || size.z > 80) return true;
     const cy = (box.min.y + box.max.y) * 0.5;
-    if (size.y < 0.45 && size.x > 6 && size.z > 6 && cy < 1.2) return true;
+    if (size.y < 0.5 && size.x > 6 && size.z > 6 && cy < 1.3) return true;
     return false;
+  }
+
+  function hideSprites(THREE, cam, head, root, hidden) {
+    const wp = new THREE.Vector3();
+    const ab = new THREE.Vector3();
+    const ap = new THREE.Vector3();
+    const next = new Set();
+    root.traverse((o) => {
+      if (!o.isSprite) return;
+      o.getWorldPosition(wp);
+      ab.copy(head).sub(cam.position);
+      const len2 = ab.lengthSq() || 1;
+      ap.copy(wp).sub(cam.position);
+      const t = ap.dot(ab) / len2;
+      if (t < 0.12 || t > 0.9) return;
+      const closest = cam.position.clone().addScaledVector(ab, t);
+      if (closest.distanceTo(wp) > Math.max(1.8, (o.scale.x || 1) * 0.6)) return;
+      next.add(o);
+    });
+    hidden.forEach((o) => { if (!next.has(o)) o.visible = true; });
+    next.forEach((o) => { o.visible = false; });
+    hidden.clear();
+    next.forEach((o) => hidden.add(o));
   }
 
   function clearSight(THREE, cam, head, root, actor, store, fade) {
     const ray = new THREE.Raycaster();
     const dir = new THREE.Vector3();
+    store.forEach((opacity, mesh) => recall(mesh));
+    store.clear();
     fade.forEach((opacity, mesh) => remember(mesh, opacity));
+    const meshes = [];
+    root.traverse((o) => { if (o.isMesh) meshes.push(o); });
+    const aims = [head];
+    if (head.y > 1) {
+      const chest = head.clone();
+      chest.y -= 0.7;
+      const hip = head.clone();
+      hip.y -= 1.15;
+      aims.push(chest, hip);
+    }
+    aims.forEach((aim) => {
+      dir.copy(aim).sub(cam.position);
+      const dist = dir.length();
+      if (dist < 0.4) return;
+      dir.multiplyScalar(1 / dist);
+      ray.set(cam.position, dir);
+      ray.near = 0.05;
+      ray.far = Math.max(0.2, dist - 0.3);
+      ray.intersectObjects(meshes, false).forEach((h) => {
+        if (h.object.visible === false || skipMesh(h.object, THREE, actor)) return;
+        const { size } = meshBox(h.object, THREE);
+        if (Math.max(size.x, size.y, size.z) >= 16) return;
+        fade.set(h.object, 0.05);
+        remember(h.object, 0.05);
+      });
+    });
     for (let n = 0; n < 6; n++) {
-      dir.copy(cam.position).sub(head);
+      dir.copy(head).sub(cam.position);
       const dist = dir.length();
       if (dist < 2.2) break;
       dir.multiplyScalar(1 / dist);
-      ray.set(head, dir);
-      ray.near = 0.15;
-      ray.far = Math.max(0.2, dist - 0.25);
-      const hits = ray.intersectObject(root, true).filter((h) => h.object.visible !== false && !skipMesh(h.object, THREE, actor));
+      ray.set(cam.position, dir);
+      ray.near = 0.05;
+      ray.far = Math.max(0.2, dist - 0.35);
+      const hits = ray.intersectObjects(meshes, false).filter((h) => h.object.visible !== false && !skipMesh(h.object, THREE, actor));
       if (!hits.length) break;
-      fade.set(hits[0].object, 0.08);
-      remember(hits[0].object, 0.08);
-      const keep = Math.max(2.5, hits[0].distance - 0.35);
-      cam.position.copy(head).addScaledVector(dir, keep);
+      const { size } = meshBox(hits[0].object, THREE);
+      const span = Math.max(size.x, size.y, size.z);
+      if (span < 16) {
+        fade.set(hits[0].object, 0.05);
+        remember(hits[0].object, 0.05);
+      }
+      const step = Math.min(dist - 2.4, hits[0].distance + 0.35);
+      if (step <= 0.05) break;
+      cam.position.addScaledVector(dir, Math.min(step, 1.4));
     }
     applyFade(fade, store);
+    if (clearSight.sprites) hideSprites(THREE, cam, head, root, clearSight.sprites);
   }
+  clearSight.sprites = new Set();
 
   function hookInterior(PE, THREE, castle) {
     const orig = castle.placeInteriorCamera.bind(castle);
@@ -209,23 +284,42 @@
     const box = new THREE.Box3();
     let armed = false;
     castle.placeInteriorCamera = function (cam, offset, info) {
-      const ok = orig(cam, offset, info);
-      if (!ok || !castle.inCastle) {
+      orig(cam, offset, info);
+      if (!castle.inCastle) {
         applyFade(new Map(), store);
+        scenery(PE, false);
+        if (cam.userData.v51fov != null && cam.fov !== cam.userData.v51fov) {
+          cam.fov = cam.userData.v51fov;
+          cam.updateProjectionMatrix();
+        }
         armed = false;
-        return ok;
+        return;
       }
+      scenery(PE, true);
       const p = PE.princess.position;
       const group = castle.castleIn.group;
       head.set(p.x, p.y + 1.45, p.z);
       const dx = cam.position.x - p.x;
       const dz = cam.position.z - p.z;
       const dist = Math.hypot(dx, dz) || 1;
-      const want = Math.min(11, Math.max(8.6, dist * 1.18));
+      let want = Math.min(14.5, Math.max(11.5, dist * 1.2));
+      const ic = castle.IC;
+      for (let n = 0; n < 10; n++) {
+        const lx = (p.x + (dx / dist) * want) - ic.x;
+        const lz = (p.z + (dz / dist) * want) - ic.z;
+        if (castle.freeAt(lx, lz)) break;
+        want *= 0.84;
+      }
+      want = Math.max(3.4, want);
       const under = worldCeiling(THREE, group, p.x, p.z, p.y + 1.2);
-      let y = head.y + 3.5;
-      if (under != null) y = Math.min(y, under - 0.85);
-      y = Math.max(y, head.y + 0.95);
+      let y = p.y + 7.2;
+      if (under != null) y = Math.min(y, under - 1.1);
+      y = Math.max(y, head.y + 1.4);
+      if (cam.userData.v51fov == null) cam.userData.v51fov = cam.fov;
+      if (cam.fov !== 64) {
+        cam.fov = 64;
+        cam.updateProjectionMatrix();
+      }
       target.set(p.x + (dx / dist) * want, y, p.z + (dz / dist) * want);
       const dt = (info && info.dt) || 0.016;
       if (!armed || smooth.distanceTo(target) > 3) {
@@ -243,10 +337,21 @@
           if (!box.isEmpty() && box.min.y > under + 0.15) fade.set(o, 0);
         });
       }
-      clearSight(THREE, cam, head, group, PE.princess, store, fade);
+      clearSight(THREE, cam, head, PE.scene, PE.princess, store, fade);
+      {
+        let lx = cam.position.x - ic.x;
+        let lz = cam.position.z - ic.z;
+        const px = p.x - ic.x;
+        const pz = p.z - ic.z;
+        for (let n = 0; n < 8 && !castle.freeAt(lx, lz); n++) {
+          lx = lx * 0.7 + px * 0.3;
+          lz = lz * 0.7 + pz * 0.3;
+        }
+        cam.position.x = ic.x + lx;
+        cam.position.z = ic.z + lz;
+      }
       smooth.copy(cam.position);
-      cam.lookAt(head);
-      return ok;
+      cam.lookAt(p.x, p.y + 2.2, p.z);
     };
   }
 
@@ -283,18 +388,20 @@
       const where = gardenHere(PE);
       if (!where) {
         if (store.size) applyFade(new Map(), store);
+        if (!(PE.v3 && PE.v3.castle && PE.v3.castle.inCastle)) scenery(PE, false);
         return;
       }
+      scenery(PE, where === "mini");
       const p = PE.princess.position;
       head.set(p.x, p.y + 1.3, p.z);
       const dx = cam.position.x - p.x;
       const dz = cam.position.z - p.z;
       const dist = Math.hypot(dx, dz) || 1;
       if (where !== "mini") {
-        const want = Math.min(12, Math.max(7.2, dist));
+        const want = 6.6;
         cam.position.x = p.x + (dx / dist) * want;
         cam.position.z = p.z + (dz / dist) * want;
-        cam.position.y = Math.max(cam.position.y, p.y + 3.8);
+        cam.position.y = p.y + 4.6;
       }
       fade.clear();
       clearSight(THREE, cam, head, PE.scene, PE.princess, store, fade);

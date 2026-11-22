@@ -66,7 +66,9 @@ async function sample(label) {
     const dist = dir.length();
     dir.multiplyScalar(1 / Math.max(0.001, dist));
     const ray = new THREE.Raycaster(cam.position, dir, 0.05, Math.max(0.1, dist - 0.45));
-    const hits = ray.intersectObjects(PE.scene.children, true).filter((h) => {
+    const meshes = [];
+    PE.scene.traverse((o) => { if (o.isMesh) meshes.push(o); });
+    const hits = ray.intersectObjects(meshes, false).filter((h) => {
       let o = h.object;
       while (o) { if (o === PE.princess) return false; o = o.parent; }
       if (h.object.visible === false) return false;
@@ -91,10 +93,12 @@ async function sample(label) {
         ceil = ceil == null ? under : Math.min(ceil, under);
       });
     }
+    const hit = hits[0];
     return {
       label,
       onScreen,
       blocked: hits.length > 0,
+      hit: hit ? { d: +hit.distance.toFixed(2), y: +hit.point.y.toFixed(2), t: hit.object.geometry && hit.object.geometry.type } : null,
       ndc: { x: +ndc.x.toFixed(2), y: +ndc.y.toFixed(2) },
       camY: +cam.position.y.toFixed(2),
       py: +p.y.toFixed(2),
