@@ -1,4 +1,4 @@
-/* Princess Explorer 5.1: Learn & Build. File name stays v47.js. Save keys are unchanged.
+/* Princess Explorer 5.2: Learn & Build. File name stays v47.js. Save keys are unchanged.
    Questions sit in front of a build. Direct care.commit() is unchanged so older saves and tests keep their prices. */
 (function () {
   const PE = window.PrincessExplorer;
@@ -449,7 +449,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
       const info = progress();
       const rows = info.rows.length ? info.rows.map((r) => `<div class="v-row"><b>${SKILL_NAME[r.skill] || r.skill}</b> — ${r.acc}% of ${r.n}</div>`).join("") : "<p>No answers yet.</p>";
       const weak = info.weak.length ? info.weak.map((r, i) => `<div>${i + 1}. ${SKILL_NAME[r.skill] || r.skill} (${r.acc}%)</div>`).join("") : "<p>No weak spots yet.</p>";
-      return `<header><h2><span class="learn-ico">★</span>Progress</h2><button class="ghost" id="learn-exit">Exit</button></header><p>Princess Explorer 5.1: Learn &amp; Build</p><p>Time played: ${Math.round(info.playMs / 60000)} min. Daily streak: ${info.streak}.</p><p><b>Weakest skills</b></p>${weak}<p><b>Accuracy</b></p>${rows}${pause}`;
+      return `<header><h2><span class="learn-ico">★</span>Progress</h2><button class="ghost" id="learn-exit">Exit</button></header><p>Princess Explorer 5.2: Learn &amp; Build</p><p>Time played: ${Math.round(info.playMs / 60000)} min. Daily streak: ${info.streak}.</p><p><b>Weakest skills</b></p>${weak}<p><b>Accuracy</b></p>${rows}${pause}`;
     }
     if (mode === "daily" && daily) {
       const q = daily.qs[daily.i];
