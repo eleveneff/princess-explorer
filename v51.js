@@ -61,6 +61,7 @@
     liftBalcony(THREE, group);
     fixSigns(THREE, PE.scene, castle);
     nudgeCarpetSign(THREE, group);
+    openTerraceGap(THREE, PE.scene);
     const fill = new THREE.PointLight("#fff6ea", 0.55, 36);
     fill.position.set(0, 3.4, 1);
     fill.name = "v51-fill";
@@ -243,6 +244,39 @@
     });
   }
 
+  function openTerraceGap(THREE, scene) {
+    const a = 142 * Math.PI / 180;
+    const R = 14.6 + 4.4;
+    const spot = new THREE.Vector3(Math.cos(a) * R, 0, Math.sin(a) * R);
+    const v = new THREE.Vector3();
+    const inv = new THREE.Matrix4();
+    scene.traverse((mesh) => {
+      if (!mesh.isMesh || !mesh.geometry || !mesh.geometry.attributes || !mesh.geometry.attributes.position) return;
+      const pos = mesh.geometry.attributes.position;
+      if (pos.count < 4000 || mesh.userData.v51gap) return;
+      mesh.updateWorldMatrix(true, false);
+      inv.copy(mesh.matrixWorld).invert();
+      let n = 0;
+      for (let i = 0; i < pos.count; i++) {
+        v.fromBufferAttribute(pos, i).applyMatrix4(mesh.matrixWorld);
+        const dx = v.x - spot.x;
+        const dz = v.z - spot.z;
+        if (dx * dx + dz * dz > 1.7 * 1.7) continue;
+        if (v.y < 0.12 || v.y > 1.6) continue;
+        v.y = -2.5;
+        v.applyMatrix4(inv);
+        pos.setXYZ(i, v.x, v.y, v.z);
+        n += 1;
+      }
+      if (!n) return;
+      pos.needsUpdate = true;
+      mesh.geometry.computeVertexNormals();
+      mesh.geometry.computeBoundingBox();
+      mesh.geometry.computeBoundingSphere();
+      mesh.userData.v51gap = n;
+    });
+  }
+
   function worldCeiling(THREE, group, x, z, minY) {
     let best = null;
     const pos = new THREE.Vector3();
@@ -355,12 +389,15 @@
     const meshes = [];
     root.traverse((o) => { if (o.isMesh) meshes.push(o); });
     const aims = [head];
-    if (head.y > 1) {
+    const feet = head.clone();
+    feet.y = actor.position.y + 0.12;
+    const knee = head.clone();
+    knee.y = actor.position.y + 0.42;
+    aims.push(feet, knee);
+    if (head.y > actor.position.y + 0.8) {
       const chest = head.clone();
-      chest.y -= 0.7;
-      const hip = head.clone();
-      hip.y -= 1.15;
-      aims.push(chest, hip);
+      chest.y = actor.position.y + 0.85;
+      aims.push(chest);
     }
     aims.forEach((aim) => {
       dir.copy(aim).sub(cam.position);
@@ -373,7 +410,9 @@
       ray.intersectObjects(meshes, false).forEach((h) => {
         if (h.object.visible === false || skipMesh(h.object, THREE, actor)) return;
         const { size } = meshBox(h.object, THREE);
-        if (Math.max(size.x, size.y, size.z) >= 16) return;
+        const span = Math.max(size.x, size.y, size.z);
+        const rail = Math.min(size.x, size.z) < 0.55 && size.y < 1.6;
+        if (span >= 16 && !rail) return;
         fade.set(h.object, 0.05);
         remember(h.object, 0.05);
       });
@@ -398,9 +437,40 @@
       if (step <= 0.05) break;
       cam.position.addScaledVector(dir, Math.min(step, 1.4));
     }
+    fadeRails(THREE, cam, feet, actor, meshes, fade);
     fadeBody(THREE, actor, meshes, fade);
     applyFade(fade, store);
     if (clearSight.sprites) hideSprites(THREE, cam, head, root, clearSight.sprites);
+  }
+
+  function fencePiece(size) {
+    const thin = Math.min(size.x, size.z) < 0.6;
+    const long = Math.max(size.x, size.z) > 0.55;
+    const post = Math.max(size.x, size.z) < 0.5 && size.y > 0.3 && size.y < 1.8;
+    return (thin && long && size.y < 1.7) || post;
+  }
+
+  function fadeRails(THREE, cam, feet, actor, meshes, fade) {
+    const box = new THREE.Box3();
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    const ab = feet.clone().sub(cam.position);
+    const len2 = ab.lengthSq() || 1;
+    meshes.forEach((mesh) => {
+      if (!mesh.visible || mesh.userData.v51floor || mesh.userData.v51stair || isActor(mesh, actor)) return;
+      box.setFromObject(mesh);
+      if (box.isEmpty()) return;
+      box.getSize(size);
+      if (!fencePiece(size) || Math.max(size.x, size.y, size.z) > 24) return;
+      box.getCenter(center);
+      let t = center.clone().sub(cam.position).dot(ab) / len2;
+      if (t < 0.04 || t > 0.96) return;
+      const closest = cam.position.clone().addScaledVector(ab, t);
+      const pad = box.clone().expandByScalar(0.42);
+      if (!pad.containsPoint(closest)) return;
+      fade.set(mesh, 0.04);
+      remember(mesh, 0.04);
+    });
   }
 
   function fadeBody(THREE, actor, meshes, fade) {
