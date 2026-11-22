@@ -68,11 +68,11 @@ check("published file still prices the castle gate at 10", html.includes("re.sco
 check("published file still totals the math gate at 20", html.includes("mathGate:{PAY:[6,7,7],TOTAL:20"));
 check("published file still charges wardrobe by the change count", html.includes("u.score=a()-d"));
 check("mini-game picker uses the same 1-change price line", html.includes('id="a35-cost"') && html.includes("${q.plural(C)} = ${C}"));
-check("version marker is v5.0", html.includes('content="v5.0"') && html.includes('version:"v5.0"'));
+check("version marker is v5.1", html.includes('content="v5.1"') && html.includes('version:"v5.1"'));
 
 const page = await open(null);
 const version = await page.evaluate(() => window.PrincessExplorer.version);
-check("runtime version is v5.0", version === "v5.0", version);
+check("runtime version is v5.1", version === "v5.1", version);
 
 const poor = await page.evaluate(() => {
   const PE = window.PrincessExplorer;
@@ -167,7 +167,7 @@ const rooms = await page.evaluate(() => {
     outsideX: +PE.princess.position.x.toFixed(2),
   };
 });
-check("entry camera is the same hall pose as v4.3", rooms.entryCam.x === 400 && rooms.entryCam.y === 4.2 && rooms.entryCam.z === 9, JSON.stringify(rooms.entryCam));
+check("entry camera is higher and pulled back in the tall hall", rooms.entryCam.x === 400 && rooms.entryCam.y > 4.6 && rooms.entryCam.y < 7.2 && rooms.entryCam.z > 9.2, JSON.stringify(rooms.entryCam));
 check("every room camera stays on walkable floor", rooms.out.every((r) => r.inside && r.onFloor && r.strict), JSON.stringify(rooms.out));
 check("ceiling stays at least 1.1 m above the camera and the head is below the lens", rooms.out.every((r) => r.gap > 1.1 && r.headBelowCam && r.finish), JSON.stringify(rooms.out));
 check("Exit to Fountain returns outside the castle shell", rooms.left === true && Math.abs(rooms.outsideX) < 80, JSON.stringify(rooms));
