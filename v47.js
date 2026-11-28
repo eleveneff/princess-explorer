@@ -497,7 +497,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     if (mode === "winter") return `<header><h2><span class="learn-ico">❄</span>Winter castle</h2><button class="ghost" id="learn-exit">Exit</button></header><p>${winterOn() ? "December 1 to January 6. Frost on the moat, lights on the lawn, snow on the ground." : "The winter castle waits from December 1 to January 6."}</p>${winterOn() ? `<button id="learn-wreath">Wreath challenge, 20 coins</button>` : ""}` + pause;
     if (mode === "gate" && gate) {
       const q = gate.qs[gate.i];
-      const title = gate.id === "passage" ? "Secret passage" : ((PE.care.DEFS.find((d) => d.id === gate.id) || {}).name || "Build");
+      const title = gate.id === "passage" ? "Secret passage" : gate.id === "frost" ? "Frost Lock" : gate.id === "cove" ? "Cove Lock" : ((PE.care.DEFS.find((d) => d.id === gate.id) || {}).name || "Build");
       return head(title, `Question ${Math.min(gate.i + 1, gate.qs.length)} of ${gate.qs.length}`) + (q ? bodyQ(q) : "<p>Building…</p>") + pause;
     }
     return "";
@@ -575,6 +575,19 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
       item("vocab", "level", "In the sentence \"She pulled the cheerful book,\" the word cheerful means ____.", ["happy", "heavy", "lost", "closed"], 0, "Cheerful is a feeling word.", "Cheerful means happy.", "read", 0),
       item("reading", "stretch", "A sign read, \"Pull the cheerful book to find the quiet room.\" Why does she pull that book?", ["To open the way to the quiet room.", "To put the book away.", "To turn off the lights.", "To pay a coin."], 0, "The sign tells what the pull does.", "Pulling that book finds the quiet room.", "read", 0)
     ];
+  }
+  function openLock(id) {
+    if (id !== "frost" && id !== "cove") return { ok: false, reason: "missing", score: coins() };
+    const s = PE.state();
+    if (s.v54 && s.v54[id]) return { ok: true, ready: true, score: coins() };
+    if (coins() < 20) return { ok: false, reason: "short", score: coins() };
+    const skill = id === "frost" ? "reading" : "measure";
+    const used = new Set();
+    const qs = [pick(skill, "confidence", used), pick(skill, "level", used), pick(skill, "stretch", used)];
+    gate = { id, qs, i: 0, misses: 0, price: 20 };
+    example = null;
+    openMode("gate");
+    return { ok: true, total: 3, skill, price: 20, score: coins() };
   }
   function openPassage() {
     const v = bag();
@@ -673,6 +686,28 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
       gate = null;
       if (window.PE_V53 && window.PE_V53.openPassage) window.PE_V53.openPassage();
       return { ok: true, right: true, done: true, refund: 0, misses, score: coins(), price: 0 };
+    }
+    if (id === "frost" || id === "cove") {
+      const price = 20;
+      const s = PE.state();
+      if (!s.v54 || typeof s.v54 !== "object") s.v54 = { plan: 1, frost: 0, cove: 0, found: 0 };
+      if (s.v54[id]) {
+        closePlay();
+        gate = null;
+        return { ok: true, right: true, done: true, misses, score: coins(), price: 0 };
+      }
+      if (coins() < price) {
+        closePlay();
+        gate = null;
+        return { ok: false, reason: "short", right: true, done: true, misses, score: coins(), price };
+      }
+      s.score = coins() - price;
+      s.v54[id] = 1;
+      s.v54.plan = 1;
+      persist();
+      closePlay();
+      gate = null;
+      return { ok: true, right: true, done: true, misses, score: coins(), price };
     }
     if (id === "wreath") {
       v.passed.wreath = 1;
@@ -1851,6 +1886,7 @@ body.learn-on > button{visibility:hidden !important;pointer-events:none !importa
     celebrate,
     ui: { open: () => !!mode, paused: () => !!pausedFrom },
     onWrong: openTutorial,
+    lock: { open: openLock },
     tutorial: {
       open: openTutorial,
       next: tutorAdvance,

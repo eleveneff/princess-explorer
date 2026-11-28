@@ -874,7 +874,7 @@
     let p = o;
     while (p) {
       const n = p.name || "";
-      if (n === "v46-stream" || n === "v46-skirt" || n === "v34-moat" || n === "v45-lawn" || n === "v34-biscuit") return true;
+      if (n === "v46-stream" || n === "v46-skirt" || n === "v34-moat" || n === "v45-lawn" || n === "v34-biscuit" || n === "v54-world") return true;
       if (p === PE.princess || p.isSkinnedMesh) return true;
       if (/castle|princess|sky|cloud|moat/i.test(n)) return true;
       p = p.parent;

@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.4
+
+- The grounds reach out to radius 64. Observatory, stable, maze, training, and the corgi house sit on the outer banks, on paths. The other stations, the moat dock, the castle, and every price stay where they were.
+- The stream is a river the swan boat can ride, with taller bridges, two locks, and closed edges at Frostmere and Coral Cove. Each lock is 3 questions, then 20 coins once. A miss still teaches and practices without paying coins. Pickups pay nothing.
+- The new lawn has flower beds, rounded trees, picnics, footbridges, and a splash pool for Sir Biscuit. Saves gain an optional `v54`. Coins, hats, and purchases carry through.
+
 ## 5.3
 
 - The upstairs costs 40 coins the first time she climbs, with a confirm and no questions. After that the stair is free, including after a reload.
