@@ -208,7 +208,7 @@
     PE.scene.traverse((o) => {
       if (o.name === "stream-bridge" || o.name === "stream-water") o.visible = false;
     });
-    const lawn = new THREE.Mesh(new THREE.CircleGeometry(EDGE, 72), new THREE.MeshLambertMaterial({ map: grassTexture(), color: "#ffffff" }));
+    const lawn = new THREE.Mesh(new THREE.RingGeometry(12.5, EDGE, 72), new THREE.MeshLambertMaterial({ map: grassTexture(), color: "#ffffff" }));
     lawn.rotation.x = -Math.PI / 2;
     lawn.position.y = 0.03;
     lawn.name = "v54-lawn";
@@ -226,33 +226,41 @@
     frost.s.lock = "frost";
     cove.s.lock = "cove";
 
-    function bridgeOn(u, name) {
-      const s = sampleAt(u);
-      const g = new THREE.Group();
-      g.name = name;
-      g.position.set(s.x, 0, s.z);
-      g.rotation.y = Math.atan2(s.nx, s.nz);
-      const wood = new THREE.MeshLambertMaterial({ color: "#8a5a32" });
-      const rail = new THREE.MeshLambertMaterial({ color: "#f2d48a" });
-      const deck = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.16, 7.4), wood);
-      deck.position.y = 3.05;
-      g.add(deck);
-      [-0.8, 0.8].forEach((x) => {
-        const bar = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 7), rail);
-        bar.position.set(x, 3.4, 0);
-        g.add(bar);
-        [-2.4, 2.4].forEach((z) => {
-          const post = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 3.2, 8), wood);
-          post.position.set(x, 1.6, z);
-          g.add(post);
-        });
+    const archWood = new THREE.MeshLambertMaterial({ color: "#8d5a34" });
+    const archRail = new THREE.MeshLambertMaterial({ color: "#f3d48a" });
+    function archStrip(mat, name, lift, halfW) {
+      const pos = [];
+      const idx = [];
+      const push = (x, y, z) => { pos.push(x, y, z); return pos.length / 3 - 1; };
+      [0.2, 0.5, 0.74].forEach((u) => {
+        const s = sampleAt(u);
+        const across = 3.6;
+        const steps = 18;
+        let prevL = -1, prevR = -1;
+        for (let i = 0; i <= steps; i++) {
+          const t = i / steps;
+          const lx = -across + t * across * 2;
+          const y = 0.4 + Math.sin(t * Math.PI) * 2.62 + lift;
+          const L = push(s.x + s.nx * lx - s.tx * halfW, y, s.z + s.nz * lx - s.tz * halfW);
+          const R = push(s.x + s.nx * lx + s.tx * halfW, y, s.z + s.nz * lx + s.tz * halfW);
+          if (i) idx.push(prevL, L, prevR, prevR, L, R);
+          prevL = L;
+          prevR = R;
+        }
       });
-      g.userData.under = 2.97;
-      root.add(g);
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+      geo.setIndex(idx);
+      geo.computeVertexNormals();
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.name = name;
+      return mesh;
     }
-    bridgeOn(0.2, "v54-bridge-north");
-    bridgeOn(0.5, "v54-bridge-garden");
-    bridgeOn(0.74, "v54-bridge-meadow");
+    const deck = archStrip(archWood, "v54-bridge-garden", 0, 1.35);
+    deck.userData.under = 2.84;
+    root.add(deck);
+    root.add(archStrip(archWood, "v54-bridge-under", -0.22, 1.35));
+    root.add(archStrip(archRail, "v54-bridge-rails", 0.5, 1.2));
 
     ["frost", "cove"].forEach((id) => {
       const hit = id === "frost" ? frost : cove;
@@ -289,6 +297,21 @@
     pickups();
     rocks();
     linkPaths();
+    const names = { observatory: "Observatory", stable: "Stable", maze: "Maze", training: "Training", corgi: "Sir Biscuit" };
+    Object.keys(names).forEach((id) => {
+      const p = SPREAD[id];
+      const flat = signBoard(names[id]);
+      flat.position.set(p[0], 0.2, p[1] + 2.4);
+      flat.rotation.x = -Math.PI / 2;
+      flat.scale.set(2.4, 2.4, 1);
+      root.add(flat);
+      const post = signBoard(names[id]);
+      post.position.set(p[0], 2.4, p[1] - 2.2);
+      root.add(post);
+    });
+    buildRideSwan();
+    paintSky();
+    cullFar();
     root.traverse((o) => { if (o.raycast) o.raycast = function () {}; });
     PE.scene.add(root);
     roundActors();
@@ -510,29 +533,37 @@
     });
   }
 
-  function linkPaths() {
-    const strips = [];
+    function linkPaths() {
+    const pts = [];
     Object.keys(SPREAD).forEach((id) => {
       const p = SPREAD[id];
       const r = Math.hypot(p[0], p[1]) || 1;
       const a = [p[0] * 18 / r, p[1] * 18 / r];
-      const b = p;
       for (let i = 0; i < 8; i++) {
         const t = i / 7;
-        strips.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+        pts.push([a[0] + (p[0] - a[0]) * t, a[1] + (p[1] - a[1]) * t]);
       }
     });
-    const mat = new THREE.MeshLambertMaterial({ color: "#e4c99a" });
-    for (let i = 0; i < strips.length - 1; i++) {
+    const pos = [];
+    const idx = [];
+    const push = (x, z, nx, nz) => { pos.push(x + nx * 0.55, 0.08, z + nz * 0.55); return pos.length / 3 - 1; };
+    for (let i = 0; i < pts.length - 1; i++) {
       if (i % 8 === 7) continue;
-      const a = strips[i], b = strips[i + 1];
-      const dx = b[0] - a[0], dz = b[1] - a[1];
-      const len = Math.hypot(dx, dz);
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.05, len), mat);
-      mesh.position.set((a[0] + b[0]) / 2, 0.07, (a[1] + b[1]) / 2);
-      mesh.rotation.y = Math.atan2(dx, dz);
-      root.add(mesh);
+      const a = pts[i], b = pts[i + 1];
+      let dx = b[0] - a[0], dz = b[1] - a[1];
+      const len = Math.hypot(dx, dz) || 1;
+      dx /= len; dz /= len;
+      const nx = -dz, nz = dx;
+      const aL = push(a[0], a[1], nx, nz), aR = push(a[0], a[1], -nx, -nz);
+      const bL = push(b[0], b[1], nx, nz), bR = push(b[0], b[1], -nx, -nz);
+      idx.push(aL, bL, aR, aR, bL, bR);
     }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    geo.setIndex(idx);
+    const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ color: "#e4c99a" }));
+    mesh.name = "v54-paths";
+    root.add(mesh);
   }
 
   function roundActors() {
@@ -592,6 +623,7 @@
 
   let river = null;
   let shot = null;
+  let rideSwan = null;
 
   function poseOf(u, side) {
     const s = sampleAt(u);
@@ -612,15 +644,15 @@
 
   function applyPose(pose) {
     if (!PE.princess || !pose) return;
-    const y = 0.34 + Math.sin(performance.now() / 500) * 0.04;
-    PE.princess.position.set(pose.x, y, pose.z);
+    const bob = Math.sin(performance.now() / 500) * 0.03;
+    PE.princess.position.set(pose.x - Math.sin(pose.yaw) * 0.15, 0.95 + bob, pose.z - Math.cos(pose.yaw) * 0.15);
     PE.princess.rotation.y = pose.yaw;
     const boat = PE.scene.getObjectByName("care-swan-boat");
-    if (boat && boat.parent) {
-      boat.parent.updateWorldMatrix(true, false);
-      const local = boat.parent.worldToLocal(new THREE.Vector3(pose.x, 0.06, pose.z));
-      boat.position.copy(local);
-      boat.rotation.y = pose.yaw - boat.parent.rotation.y;
+    if (boat) boat.visible = false;
+    if (rideSwan) {
+      rideSwan.visible = true;
+      rideSwan.position.set(pose.x, 0.02 + bob, pose.z);
+      rideSwan.rotation.y = pose.yaw;
     }
     const onSouth = Math.hypot(pose.x - MOAT.x, pose.z - MOAT.z) < 13 && pose.z > 5 && Math.abs(pose.x) < 3.2;
     window.__swanRaise = !!onSouth;
@@ -740,6 +772,9 @@
   function stopRiver() {
     river = null;
     prompt("");
+    if (rideSwan) rideSwan.visible = false;
+    const boat = PE.scene.getObjectByName("care-swan-boat");
+    if (boat) boat.visible = true;
   }
 
   if (PE.gate && PE.gate.step && !PE.gate._v54) {
@@ -767,6 +802,126 @@
     requestAnimationFrame(loop);
   }
 
+  function cullFar() {
+    if (!PE.scene || PE.scene.userData.v54cull) return;
+    const tmp = new THREE.Vector3();
+    PE.scene.traverse((o) => {
+      if (!o.isMesh || !o.visible) return;
+      let p = o, keep = false;
+      while (p) {
+        if (p.name === "v54-world" || p.name === "v53-inside" || p === PE.princess) { keep = true; break; }
+        p = p.parent;
+      }
+      if (keep) return;
+      o.getWorldPosition(tmp);
+      if (Math.hypot(tmp.x, tmp.z) > 68) o.visible = false;
+    });
+    PE.scene.userData.v54cull = 1;
+  }
+  function paintSky() {
+    if (!PE.scene || PE.scene.userData.v54sky) return;
+    const c = document.createElement("canvas");
+    c.width = 512; c.height = 512;
+    const g = c.getContext("2d");
+    const sky = g.createLinearGradient(0, 0, 0, 512);
+    sky.addColorStop(0, "#6eace8");
+    sky.addColorStop(0.45, "#b7dbf8");
+    sky.addColorStop(1, "#e7f6e4");
+    g.fillStyle = sky;
+    g.fillRect(0, 0, 512, 512);
+    g.fillStyle = "rgba(255,255,255,0.88)";
+    [[120, 90, 36], [200, 70, 22], [300, 120, 40], [80, 160, 18], [380, 80, 26], [240, 150, 30]].forEach(([x, y, r]) => {
+      g.beginPath();
+      g.ellipse(x, y, r, r * 0.55, 0, 0, 7);
+      g.fill();
+    });
+    const tex = new THREE.CanvasTexture(c);
+    if (THREE.SRGBColorSpace) tex.colorSpace = THREE.SRGBColorSpace;
+    PE.scene.background = tex;
+    PE.scene.fog = new THREE.Fog("#d7eef8", 34, 82);
+    PE.scene.userData.v54sky = 1;
+  }
+  function buildRideSwan() {
+    const g = new THREE.Group();
+    g.name = "v54-ride-swan";
+    const white = new THREE.MeshLambertMaterial({ color: "#fffdf8" });
+    const gold = new THREE.MeshLambertMaterial({ color: "#e2b23a" });
+    const dark = new THREE.MeshLambertMaterial({ color: "#3a2a22" });
+    const hull = new THREE.Mesh(new THREE.SphereGeometry(0.95, 16, 12), white);
+    hull.scale.set(0.85, 0.42, 1.7);
+    hull.position.set(0, 0.48, -0.05);
+    g.add(hull);
+    const seat = new THREE.Mesh(new THREE.SphereGeometry(0.34, 10, 8), white);
+    seat.scale.set(1, 0.45, 1);
+    seat.position.set(0, 0.72, -0.15);
+    g.add(seat);
+    const wingL = new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 8), white);
+    wingL.scale.set(1.1, 0.22, 0.7);
+    wingL.position.set(-0.55, 0.55, 0.05);
+    const wingR = wingL.clone();
+    wingR.position.x = 0.55;
+    g.add(wingL, wingR);
+    [[0, 0.7, 0.55], [0, 1.05, 0.85], [0, 1.4, 1.05], [0, 1.7, 1.15]].forEach((p, i) => {
+      const neck = new THREE.Mesh(new THREE.SphereGeometry(0.16 - i * 0.01, 8, 6), white);
+      neck.position.set(p[0], p[1], p[2]);
+      g.add(neck);
+    });
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), white);
+    head.position.set(0, 1.88, 1.28);
+    g.add(head);
+    const beak = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.28, 8), gold);
+    beak.rotation.x = Math.PI / 2;
+    beak.position.set(0, 1.84, 1.52);
+    g.add(beak);
+    [[0.08, 1.96, 1.34], [-0.08, 1.96, 1.34]].forEach((p) => {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 5), dark);
+      eye.position.set(p[0], p[1], p[2]);
+      g.add(eye);
+    });
+    g.visible = false;
+    g.traverse((o) => { if (o.isMesh) o.castShadow = false; });
+    rideSwan = g;
+    root.add(g);
+  }
+  let shell = null;
+  function showShell() {
+    if (!shell) {
+      shell = [];
+      const tmp = new THREE.Vector3();
+      PE.scene.traverse((o) => {
+        if (!o.isMesh) return;
+        let p = o, skip = false;
+        while (p) {
+          if (p.name === "v53-inside" || p.name === "v54-world" || p.name === "v53-panorama") skip = true;
+          p = p.parent;
+        }
+        if (skip) return;
+        o.getWorldPosition(tmp);
+        if (Math.hypot(tmp.x, tmp.z) < 16) shell.push(o);
+      });
+    }
+    shell.forEach((o) => { o.visible = true; });
+  }
+  let sprites = null;
+  function tameLabels() {
+    if (!PE.camera) return;
+    if (!sprites) {
+      sprites = [];
+      PE.scene.traverse((o) => { if (o.isSprite) sprites.push(o); });
+    }
+    const cam = PE.camera.position;
+    const high = cam.y > 16;
+    const tmp = new THREE.Vector3();
+    sprites.forEach((o) => {
+      if (!o.userData.v54drop && o.position.y > 5) {
+        o.position.y = 3.3;
+        o.userData.v54drop = 1;
+      }
+      o.getWorldPosition(tmp);
+      const d = Math.hypot(tmp.x - cam.x, tmp.z - cam.z);
+      o.visible = !high && d > 0.4 && d < 20;
+    });
+  }
   function showOutdoors() {
     const world = PE.scene && PE.scene.getObjectByName("v54-world");
     if (world) {
@@ -778,26 +933,29 @@
     const cam = PE.camera;
     if (!cam) return;
     showOutdoors();
-    if (PE.scene) PE.scene.fog = null;
-    cam.far = 500;
+    paintSky();
+    const btn = document.getElementById("care-prompt");
+    if (btn) btn.style.setProperty("display", "none", "important");
+    cam.far = name === "aerial" ? 110 : 160;
     cam.near = 0.3;
     cam.updateProjectionMatrix();
+    if (name === "aerial" || name === "castle") showShell();
     if (name === "aerial") {
-      cam.position.set(28, 52, 46);
-      cam.lookAt(0, 0, 2);
+      cam.position.set(6, 46, 34);
+      cam.lookAt(2, 0, 4);
     } else if (name === "bridge" && river) {
       const pose = poseOf(river.u, river.side);
       applyPose(pose);
       const s = sampleAt(river.u);
-      cam.position.set(pose.x + s.nx * 5.5 - s.tx * 2, 1.8, pose.z + s.nz * 5.5 - s.tz * 2);
-      cam.lookAt(pose.x - s.nx * 0.4, 1.5, pose.z - s.nz * 0.4);
+      cam.position.set(pose.x + s.tx * 6.5 + s.nx * 1.5, 5.2, pose.z + s.tz * 6.5 + s.nz * 1.5);
+      cam.lookAt(pose.x, 1.1, pose.z);
     } else if (name === "station") {
       const p = SPREAD.stable;
-      cam.position.set(p[0] + 5.5, 2.8, p[1] + 5.5);
-      cam.lookAt(p[0], 2, p[1]);
+      cam.position.set(p[0] + 6, 3.2, p[1] + 6);
+      cam.lookAt(p[0], 1.8, p[1]);
     } else if (name === "castle") {
-      cam.position.set(0, 4.2, 22);
-      cam.lookAt(0, 3, 0);
+      cam.position.set(4, 5.5, 12);
+      cam.lookAt(0, 4.5, 0);
     }
   }
   function look(name) {
@@ -809,10 +967,16 @@
     });
     const layer = document.getElementById("learn-layer");
     if (layer && name !== "lock") layer.classList.remove("show");
-    document.querySelectorAll("div, p, button").forEach((el) => {
-      const t = (el.innerText || "").trim();
-      if (t.length < 80 && /step off the swan|Press E to step/i.test(t)) el.style.display = "none";
+    ["care-prompt", "swan-exit", "prompt"].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = "none";
     });
+    if (!document.getElementById("v54-hide-prompts")) {
+      const css = document.createElement("style");
+      css.id = "v54-hide-prompts";
+      css.textContent = "#care-prompt,#swan-exit{display:none !important}";
+      document.head.appendChild(css);
+    }
     if (name === "bridge") {
       if (!PE.care.boat.on() && PE.care.own && PE.care.own("swans")) PE.care.act("swans");
       river = { u: 0.5, side: 0.2, yaw: 0 };
@@ -823,14 +987,7 @@
         PE.princess.rotation.y = Math.atan2(-3.4, -2.2);
       }
     } else if (name === "castle") {
-      if (PE.scene) {
-        const tmp = new THREE.Vector3();
-        PE.scene.traverse((o) => {
-          if (!o.isMesh) return;
-          o.getWorldPosition(tmp);
-          if (Math.hypot(tmp.x, tmp.z) < 18) o.visible = true;
-        });
-      }
+      showShell();
       stopRiver();
       if (PE.care.boat.on()) {
         const spot = PE.care.spot("swans");
@@ -856,6 +1013,10 @@
     let painting = false;
     renderer.render = function (scene, camera) {
       if (painting) return render(scene, camera);
+      tameLabels();
+      const indoors = PE.v3 && PE.v3.castle && PE.v3.castle.inCastle;
+      const pocket = PE.scene.getObjectByName("v53-inside");
+      if (pocket && !indoors && PE.camera && PE.camera.position.x < 180) pocket.visible = false;
       const out = render(scene, camera);
       if (shot) {
         painting = true;

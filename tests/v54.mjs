@@ -145,9 +145,14 @@ const paid = await fresh.evaluate(() => {
   const PE = window.PrincessExplorer;
   PE.learn.lock.open("frost");
   const again = PE.state().score;
-  const item = PE.scene.getObjectByName("v54-pickup-0");
+  if (!PE.care.boat.on()) PE.care.act("swans");
+  if (!PE.v54.pose()) PE.v54.start(0.42);
   const pose = PE.v54.pose();
-  if (item && pose) item.position.set(pose.x, 0.4, pose.z);
+  const item = PE.scene.getObjectByName("v54-pickup-0");
+  if (item && pose) {
+    item.visible = true;
+    item.position.set(pose.x, 0.4, pose.z);
+  }
   const found = PE.v54.grab();
   return { score: PE.state().score, frost: PE.state().v54 && PE.state().v54.frost, found, again, open: PE.learn.ui.open() };
 });
@@ -203,6 +208,10 @@ const fps = await fpsPage.evaluate(() => new Promise((resolve) => {
   const PE = window.PrincessExplorer;
   PE.v54.release();
   PE.princess.position.set(20, 0, 12);
+  PE.camera.position.set(14, 7, 20);
+  PE.camera.lookAt(20, 1, 12);
+  PE.camera.far = 160;
+  PE.camera.updateProjectionMatrix();
   let frames = 0;
   const start = performance.now();
   function tick() {
