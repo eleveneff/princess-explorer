@@ -15,7 +15,7 @@ These stay the size and place they have today:
 - The moat: center `(0, -1)`, inner 7.6, outer 12.28. The swan dock stays on that ring.
 - Every price, coin payout, and purchase id.
 
-Stations move out along the same angle, radius ×1.25, so the new lawn has paths between them instead of a copy of today’s crowd on a bigger texture. Ids stay (`terrace`, `stable`, `studio`, `nook`, `tea`, `maze`, `training`, `court`, `observatory`, `stage`, `corgi`). Each circle still answers E the way it does now. The swan dock is the exception: it stays on the moat, because that is the boat.
+Several stations move onto the new outer lawn, along the river banks, each on a path. They are not a uniform ×1.25 slide. Observatory, stable, maze, training, and the corgi house sit on those banks, far enough apart that their rings do not overlap, and each is still inside the new edge. Terrace, tea, studio, nook, court, and the stage stay on the inner lawn. The swan dock stays on the moat. Ids and prices do not change. The new lawn is filled in: flower beds, rounded trees, picnic spots, small footbridges over side creeks, and a Sir Biscuit splash pool. It is not an empty green ring.
 
 A save standing by the fountain stays there. Saved coordinates are not scaled. If a saved spot now sits in the wider water, she is nudged to the nearest bank on load.
 
