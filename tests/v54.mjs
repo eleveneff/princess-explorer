@@ -200,6 +200,8 @@ await fresh.evaluate(() => window.PrincessExplorer.v54.look("station"));
 await fresh.screenshot({ path: path.join(shot, "0-river-station.png") });
 await fresh.evaluate(() => window.PrincessExplorer.v54.look("castle"));
 await fresh.screenshot({ path: path.join(shot, "0-river-castle.png") });
+await fresh.evaluate(() => window.PrincessExplorer.v54.look("landscape"));
+await fresh.screenshot({ path: path.join(shot, "0-river-landscape.png") });
 
 const fpsPage = await boot(null);
 const client = await fpsPage.createCDPSession();
